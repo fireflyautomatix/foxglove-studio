@@ -69,14 +69,19 @@ export function DataSourceDialog(props: DataSourceDialogProps): JSX.Element {
   useLayoutEffect(() => {
     if (activeView === "file") {
       openFile()
-        .catch((err) => {
-          console.error(err);
-        })
-        .finally(() => {
-          // set the view back to start so the user can click to open file again
-          if (isMounted()) {
+        .then((didOpen) => {
+          // If no file was selected we go back to the start screen.
+          // There is quirk here where if the user cancels the open file dialog they launched
+          // through the file -> open local file menu they will still see the start screen
+          //
+          // This is because we are using the dialog to handle logic which could move to workspace
+          // actions.
+          if (!didOpen && isMounted()) {
             dialogActions.dataSource.open("start");
           }
+        })
+        .catch((err) => {
+          console.error(err);
         });
     } else if (activeView === "demo" && firstSampleSource) {
       selectSource(firstSampleSource.id);
@@ -115,6 +120,12 @@ export function DataSourceDialog(props: DataSourceDialogProps): JSX.Element {
         };
     }
   }, [activeView]);
+
+  // If the active view is "file", we don't need to render anything and instead will show the system
+  // file dialog.
+  if (activeView === "file") {
+    return <></>;
+  }
 
   return (
     <Dialog

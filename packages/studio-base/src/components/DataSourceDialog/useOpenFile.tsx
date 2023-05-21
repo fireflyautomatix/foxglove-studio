@@ -11,7 +11,13 @@ import {
 } from "@foxglove/studio-base/context/PlayerSelectionContext";
 import showOpenFilePicker from "@foxglove/studio-base/util/showOpenFilePicker";
 
-export function useOpenFile(sources: IDataSourceFactory[]): () => Promise<void> {
+/**
+ * Return a function to open a file picker and select the appropriate source for the selected file.
+ *
+ * The returned function resolves to a promise which returns true if a file was selected and
+ * false if the user cancelled the file picker.
+ */
+export function useOpenFile(sources: IDataSourceFactory[]): () => Promise<boolean> {
   const { selectSource } = usePlayerSelection();
 
   const allExtensions = useMemo(() => {
@@ -34,7 +40,7 @@ export function useOpenFile(sources: IDataSourceFactory[]): () => Promise<void> 
       ],
     });
     if (!fileHandle) {
-      return;
+      return false;
     }
 
     const file = await fileHandle.getFile();
@@ -59,5 +65,6 @@ export function useOpenFile(sources: IDataSourceFactory[]): () => Promise<void> 
     }
 
     selectSource(foundSource.id, { type: "file", handle: fileHandle });
+    return true;
   }, [allExtensions, selectSource, sources]);
 }
