@@ -417,6 +417,10 @@ export type RegisterMessageConverterArgs<Src> = {
   converter: (msg: Src, event: Immutable<MessageEvent<Src>>) => unknown;
 };
 
+export type RegisterTopicMapperArgs = (
+  topics: ReadonlyArray<{ name: string; schemaName?: string }>,
+) => ReadonlyMap<string, string>;
+
 export interface ExtensionContext {
   /** The current _mode_ of the application. */
   readonly mode: "production" | "development" | "test";
@@ -424,6 +428,8 @@ export interface ExtensionContext {
   registerPanel(params: ExtensionPanelRegistration): void;
 
   registerMessageConverter<Src>(args: RegisterMessageConverterArgs<Src>): void;
+
+  registerTopicMapper(args: RegisterTopicMapperArgs): void;
 }
 
 export interface ExtensionActivate {
