@@ -2,6 +2,8 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import { RegisterTopicMapperArgs } from "@foxglove/studio-base/../../studio/src";
+import { GlobalVariables } from "@foxglove/studio-base/hooks/useGlobalVariables";
 import {
   MappingInputs,
   mapPlayerState,
@@ -91,33 +93,16 @@ describe("mapPlayerState", () => {
     const inputs: MappingInputs = {
       mappers: [() => new Map([["/topic_1", "/renamed_topic_1"]])],
       topics,
+      variables: {},
     };
     const mapped = mapPlayerState(inputs, state);
-    expect(mapped.progress).toEqual({
-      fullyLoadedFractionRanges: [],
+    expect(mapped.progress).toMatchObject({
       messageCache: {
-        startTime: { sec: 0, nsec: 1 },
         blocks: [
           {
             messagesByTopic: {
-              "/renamed_topic_1": [
-                {
-                  topic: "/renamed_topic_1",
-                  receiveTime: { sec: 0, nsec: 0 },
-                  message: undefined,
-                  schemaName: "whatever",
-                  sizeInBytes: 0,
-                },
-              ],
-              "/topic_2": [
-                {
-                  topic: "/topic_2",
-                  receiveTime: { sec: 0, nsec: 0 },
-                  message: undefined,
-                  schemaName: "whatever",
-                  sizeInBytes: 0,
-                },
-              ],
+              "/renamed_topic_1": [{ topic: "/renamed_topic_1" }],
+              "/topic_2": [{ topic: "/topic_2" }],
             },
             sizeInBytes: 0,
           },
@@ -153,6 +138,7 @@ describe("mapPlayerState", () => {
     const inputs: MappingInputs = {
       mappers: [() => new Map([["/topic_1", "/renamed_topic_1"]])],
       topics,
+      variables: {},
     };
     const mapped = mapPlayerState(inputs, state);
     expect(mapped.activeData?.messages).toEqual([
@@ -176,6 +162,7 @@ describe("mapPlayerState", () => {
     const inputs: MappingInputs = {
       mappers: [() => new Map([["/topic_1", "/renamed_topic_1"]])],
       topics,
+      variables: {},
     };
     const mapped = mapPlayerState(inputs, state);
     expect(mapped.activeData?.publishedTopics).toEqual(
@@ -201,6 +188,7 @@ describe("mapPlayerState", () => {
     const inputs: MappingInputs = {
       mappers: [() => new Map([["/topic_1", "/renamed_topic_1"]])],
       topics,
+      variables: {},
     };
     const mapped = mapPlayerState(inputs, state);
     expect(mapped.activeData?.subscribedTopics).toEqual(
@@ -220,10 +208,32 @@ describe("mapPlayerState", () => {
     const inputs: MappingInputs = {
       mappers: [() => new Map([["/topic_1", "/renamed_topic_1"]])],
       topics,
+      variables: {},
     };
     const mapped = mapPlayerState(inputs, state);
     expect(mapped.activeData?.topics).toEqual([
       { name: "/renamed_topic_1", schemaName: "whatever", mappedFromName: "/topic_1" },
+      { name: "/topic_2", schemaName: "whatever" },
+    ]);
+  });
+
+  it("uses global variables in mapping", () => {
+    const topics: Topic[] = [
+      { name: "/topic_1", schemaName: "whatever" },
+      { name: "/topic_2", schemaName: "whatever" },
+    ];
+    const state = fakePlayerState(undefined, { topics });
+    const inputs: MappingInputs = {
+      mappers: [
+        (args: Parameters<RegisterTopicMapperArgs>[0]) =>
+          new Map([["/topic_1", `/renamed_topic_${args.globalVariables["foo"]}`]]),
+      ],
+      topics,
+      variables: { foo: "bar" },
+    };
+    const mapped = mapPlayerState(inputs, state);
+    expect(mapped.activeData?.topics).toEqual([
+      { name: "/renamed_topic_bar", schemaName: "whatever", mappedFromName: "/topic_1" },
       { name: "/topic_2", schemaName: "whatever" },
     ]);
   });

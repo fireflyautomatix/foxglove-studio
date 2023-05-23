@@ -96,7 +96,6 @@ export default function PlayerManager(props: PropsWithChildren<PlayerManagerProp
   const globalVariables = useCurrentLayoutSelector(globalVariablesSelector);
 
   const topicMappers = useExtensionCatalog(selectTopicMappers);
-  const [initialTopicMappers] = useState(topicMappers);
 
   const { recents, addRecent } = useIndexedDbRecents();
 
@@ -108,17 +107,20 @@ export default function PlayerManager(props: PropsWithChildren<PlayerManagerProp
   // the message pipeline
   const globalVariablesRef = useLatest(globalVariables);
 
-  // Initialize the topic mapping player with the mappers we have at first load. Any
-  // changes in mappers caused by dynamically loaded extensions have to be set separately
-  // because we can only construct the wrapping player once since the underlying player
-  // doesn't allow us set a new listener after the initial listener is set.
+  // Initialize the topic mapping player with the mappers and global variables we have at
+  // first load. Any changes in mappers caused by dynamically loaded extensions or new
+  // variables have to be set separately because we can only construct the wrapping player
+  // once since the underlying player doesn't allow us set a new listener after the
+  // initial listener is set.
+  const [initialTopicMappers] = useState(topicMappers);
+  const [initialGlobalVariables] = useState(globalVariables);
   const topicMapper = useMemo(() => {
     if (!basePlayer) {
       return undefined;
     }
 
-    return new TopicMappingPlayer(basePlayer, initialTopicMappers ?? []);
-  }, [basePlayer, initialTopicMappers]);
+    return new TopicMappingPlayer(basePlayer, initialTopicMappers ?? [], initialGlobalVariables);
+  }, [basePlayer, initialGlobalVariables, initialTopicMappers]);
 
   // Topic mappers can change if we hot load a new extension with new mappers.
   useEffect(() => {
@@ -126,6 +128,13 @@ export default function PlayerManager(props: PropsWithChildren<PlayerManagerProp
       topicMapper?.setMappers(topicMappers ?? []);
     }
   }, [initialTopicMappers, topicMapper, topicMappers]);
+
+  // Topic mapper needs updated global variables.
+  useEffect(() => {
+    if (globalVariables !== initialGlobalVariables) {
+      topicMapper?.setGlobalVariables(globalVariables);
+    }
+  }, [globalVariables, initialGlobalVariables, topicMapper]);
 
   const player = useMemo(() => {
     if (!topicMapper) {

@@ -2,8 +2,6 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Immutable as Im } from "immer";
-
 import { Time } from "@foxglove/rostime";
 import { ParameterValue, RegisterTopicMapperArgs } from "@foxglove/studio";
 import { GlobalVariables } from "@foxglove/studio-base/hooks/useGlobalVariables";
@@ -20,18 +18,23 @@ import { MappingInputs, mapPlayerState, mapSubscriptions } from "./mapping";
 export class TopicMappingPlayer implements Player {
   readonly #player: Player;
 
-  #inputs: Im<MappingInputs>;
+  #inputs: MappingInputs;
   #pendingSubscriptions: undefined | SubscribePayload[];
   #skipMapping: boolean;
 
   #listener?: (state: PlayerState) => Promise<void>;
 
-  public constructor(player: Player, mappers: readonly RegisterTopicMapperArgs[]) {
+  public constructor(
+    player: Player,
+    mappers: readonly RegisterTopicMapperArgs[],
+    variables: GlobalVariables,
+  ) {
     this.#player = player;
     this.#skipMapping = mappers.length === 0;
     this.#inputs = {
       mappers,
       topics: undefined,
+      variables,
     };
   }
 
@@ -42,7 +45,7 @@ export class TopicMappingPlayer implements Player {
   }
 
   public setMappers(mappers: readonly RegisterTopicMapperArgs[]): void {
-    this.#inputs = { mappers, topics: this.#inputs.topics };
+    this.#inputs = { ...this.#inputs, mappers };
     this.#skipMapping = mappers.length === 0;
   }
 
@@ -105,6 +108,7 @@ export class TopicMappingPlayer implements Player {
 
   public setGlobalVariables(globalVariables: GlobalVariables): void {
     this.#player.setGlobalVariables(globalVariables);
+    this.#inputs = { ...this.#inputs, variables: globalVariables };
   }
 
   async #onPlayerState(playerState: PlayerState) {

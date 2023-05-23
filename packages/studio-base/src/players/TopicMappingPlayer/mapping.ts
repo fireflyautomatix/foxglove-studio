@@ -7,6 +7,7 @@ import { transform, uniq } from "lodash";
 import memoizeWeak from "memoize-weak";
 
 import { MessageEvent, RegisterTopicMapperArgs } from "@foxglove/studio";
+import { GlobalVariables } from "@foxglove/studio-base/hooks/useGlobalVariables";
 import {
   MessageBlock,
   PlayerState,
@@ -20,8 +21,9 @@ export type MessageBlocks = readonly (undefined | MessageBlock)[];
 export const EmptyMapping: Im<TopicMapping> = new Map();
 
 export type MappingInputs = {
-  mappers: RegisterTopicMapperArgs[];
+  mappers: readonly RegisterTopicMapperArgs[];
   topics: undefined | Topic[];
+  variables: GlobalVariables;
 };
 
 function mapBlocks(blocks: MessageBlocks, mapping: Im<TopicMapping>): MessageBlocks {
@@ -158,8 +160,13 @@ function mergeMappings(maps: Im<Map<string, string>[]>): TopicMapping {
 
 // Applies our topic mappers to the input topics to generate an active set of name =>
 // renamed topic mappings.
-function buildMapping(inputs: Im<MappingInputs>): Im<TopicMapping> {
-  const mappings = inputs.mappers.map((mapper) => mapper(inputs.topics ?? []));
+function buildMapping(inputs: MappingInputs): Im<TopicMapping> {
+  const mappings = inputs.mappers.map((mapper) =>
+    mapper({
+      topics: inputs.topics ?? [],
+      globalVariables: inputs.variables,
+    }),
+  );
   const anyMappings = mappings.some((map) => [...map.entries()].length > 0);
   return anyMappings ? mergeMappings(mappings) : EmptyMapping;
 }
@@ -181,7 +188,7 @@ const memoMapProgress = memoizeWeak(mapProgress);
  * @returns a mapped player state with all mapped topic names replaced with their mapped
  * value.
  */
-export function mapPlayerState(inputs: Im<MappingInputs>, playerState: PlayerState): PlayerState {
+export function mapPlayerState(inputs: MappingInputs, playerState: PlayerState): PlayerState {
   const newState = {
     ...playerState,
     activeData: playerState.activeData ? { ...playerState.activeData } : undefined,
@@ -221,7 +228,7 @@ export function mapPlayerState(inputs: Im<MappingInputs>, playerState: PlayerSta
  * @returns a new array of subscription payloads with mapped topic names
  */
 export const mapSubscriptions = memoizeWeak(
-  (inputs: Im<MappingInputs>, subcriptions: SubscribePayload[]): SubscribePayload[] => {
+  (inputs: MappingInputs, subcriptions: SubscribePayload[]): SubscribePayload[] => {
     const mapping = memoBuildMapping(inputs);
 
     if (mapping === EmptyMapping) {
