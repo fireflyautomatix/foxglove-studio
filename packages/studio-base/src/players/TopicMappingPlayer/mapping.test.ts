@@ -2,8 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { RegisterTopicMapperArgs } from "@foxglove/studio-base/../../studio/src";
-import { GlobalVariables } from "@foxglove/studio-base/hooks/useGlobalVariables";
+import { RegisterTopicMapperArgs } from "@foxglove/studio";
 import {
   MappingInputs,
   mapPlayerState,
