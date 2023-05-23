@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { RegisterTopicMapperArgs } from "@foxglove/studio";
+import { TopicMapper } from "@foxglove/studio";
 import {
   MappingInputs,
   mapPlayerState,
@@ -224,7 +224,7 @@ describe("mapPlayerState", () => {
     const state = fakePlayerState(undefined, { topics });
     const inputs: MappingInputs = {
       mappers: [
-        (args: Parameters<RegisterTopicMapperArgs>[0]) =>
+        (args: Parameters<TopicMapper>[0]) =>
           new Map([["/topic_1", `/renamed_topic_${args.globalVariables["foo"]}`]]),
       ],
       topics,

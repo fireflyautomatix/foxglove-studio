@@ -2,11 +2,10 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Immutable as Im } from "immer";
 import { transform, uniq } from "lodash";
 import memoizeWeak from "memoize-weak";
 
-import { MessageEvent, RegisterTopicMapperArgs } from "@foxglove/studio";
+import { Immutable as Im, MessageEvent, TopicMapper } from "@foxglove/studio";
 import { GlobalVariables } from "@foxglove/studio-base/hooks/useGlobalVariables";
 import {
   MessageBlock,
@@ -16,12 +15,12 @@ import {
   Topic,
 } from "@foxglove/studio-base/players/types";
 
-export type TopicMapping = Map<string, string[]>;
-export type MessageBlocks = readonly (undefined | MessageBlock)[];
-export const EmptyMapping: Im<TopicMapping> = new Map();
+type TopicMapping = Map<string, string[]>;
+type MessageBlocks = readonly (undefined | MessageBlock)[];
+const EmptyMapping: Im<TopicMapping> = new Map();
 
 export type MappingInputs = {
-  mappers: readonly RegisterTopicMapperArgs[];
+  mappers: TopicMapper[];
   topics: undefined | Topic[];
   variables: GlobalVariables;
 };
@@ -32,35 +31,34 @@ function mapBlocks(blocks: MessageBlocks, mapping: Im<TopicMapping>): MessageBlo
   }
 
   return blocks.map((block) => {
-    return block
-      ? {
-          ...block,
-          messagesByTopic: transform(
-            block.messagesByTopic,
-            (acc, messages, topic) => {
-              const mappings = mapping.get(topic);
-              if (mappings) {
-                for (const mappedTopic of mappings) {
-                  acc[mappedTopic] = messages.map((msg) => ({
-                    ...msg,
-                    topic: mappedTopic,
-                  }));
-                }
-              } else {
-                acc[topic] = messages;
-              }
-            },
-            {} as Record<string, MessageEvent<unknown>[]>,
-          ),
-        }
-      : undefined;
+    if (block == undefined) {
+      return undefined;
+    }
+
+    return {
+      ...block,
+      messagesByTopic: transform(
+        block.messagesByTopic,
+        (acc, messages, topic) => {
+          const mappings = mapping.get(topic);
+          if (mappings) {
+            for (const mappedTopic of mappings) {
+              acc[mappedTopic] = messages.map((msg) => ({
+                ...msg,
+                topic: mappedTopic,
+              }));
+            }
+          } else {
+            acc[topic] = messages;
+          }
+        },
+        {} as Record<string, MessageEvent<unknown>[]>,
+      ),
+    };
   });
 }
 
-function mapMessages(
-  messages: readonly MessageEvent<unknown>[],
-  mapping: Im<TopicMapping>,
-): readonly MessageEvent<unknown>[] {
+function mapMessages(messages: Im<MessageEvent[]>, mapping: Im<TopicMapping>): Im<MessageEvent[]> {
   if (mapping === EmptyMapping) {
     return messages;
   }
@@ -160,7 +158,7 @@ function mergeMappings(maps: Im<Map<string, string>[]>): TopicMapping {
 
 // Applies our topic mappers to the input topics to generate an active set of name =>
 // renamed topic mappings.
-function buildMapping(inputs: MappingInputs): Im<TopicMapping> {
+function buildMapping(inputs: Im<MappingInputs>): Im<TopicMapping> {
   const mappings = inputs.mappers.map((mapper) =>
     mapper({
       topics: inputs.topics ?? [],
@@ -188,7 +186,7 @@ const memoMapProgress = memoizeWeak(mapProgress);
  * @returns a mapped player state with all mapped topic names replaced with their mapped
  * value.
  */
-export function mapPlayerState(inputs: MappingInputs, playerState: PlayerState): PlayerState {
+export function mapPlayerState(inputs: Im<MappingInputs>, playerState: PlayerState): PlayerState {
   const newState = {
     ...playerState,
     activeData: playerState.activeData ? { ...playerState.activeData } : undefined,
@@ -228,7 +226,7 @@ export function mapPlayerState(inputs: MappingInputs, playerState: PlayerState):
  * @returns a new array of subscription payloads with mapped topic names
  */
 export const mapSubscriptions = memoizeWeak(
-  (inputs: MappingInputs, subcriptions: SubscribePayload[]): SubscribePayload[] => {
+  (inputs: Im<MappingInputs>, subcriptions: SubscribePayload[]): SubscribePayload[] => {
     const mapping = memoBuildMapping(inputs);
 
     if (mapping === EmptyMapping) {

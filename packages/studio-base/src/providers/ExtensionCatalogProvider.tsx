@@ -4,14 +4,14 @@
 
 import React, { PropsWithChildren, useEffect, useState } from "react";
 import ReactDOM from "react-dom";
-import { createStore, StoreApi } from "zustand";
+import { StoreApi, createStore } from "zustand";
 
 import Logger from "@foxglove/log";
 import {
   ExtensionContext,
   ExtensionModule,
   RegisterMessageConverterArgs,
-  RegisterTopicMapperArgs,
+  TopicMapper,
 } from "@foxglove/studio";
 import {
   ExtensionCatalog,
@@ -26,7 +26,7 @@ const log = Logger.getLogger(__filename);
 type ContributionPoints = {
   panels: Record<string, RegisteredPanel>;
   messageConverters: RegisterMessageConverterArgs<unknown>[];
-  topicMappers: RegisterTopicMapperArgs[];
+  topicMappers: TopicMapper[];
 };
 
 function activateExtension(
@@ -39,7 +39,7 @@ function activateExtension(
 
   const messageConverters: RegisterMessageConverterArgs<unknown>[] = [];
 
-  const topicMappers: RegisterTopicMapperArgs[] = [];
+  const topicMappers: TopicMapper[] = [];
 
   log.debug(`Activating extension ${extension.qualifiedName}`);
 
@@ -81,7 +81,7 @@ function activateExtension(
       messageConverters.push(args as RegisterMessageConverterArgs<unknown>);
     },
 
-    registerTopicMapper: (args: RegisterTopicMapperArgs) => {
+    registerTopicMapper: (args: TopicMapper) => {
       topicMappers.push(args);
     },
   };

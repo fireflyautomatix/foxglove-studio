@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { Time } from "@foxglove/rostime";
-import { ParameterValue, RegisterTopicMapperArgs } from "@foxglove/studio";
+import { Immutable, ParameterValue, TopicMapper } from "@foxglove/studio";
 import { GlobalVariables } from "@foxglove/studio-base/hooks/useGlobalVariables";
 import {
   AdvertiseOptions,
@@ -15,10 +15,15 @@ import {
 
 import { MappingInputs, mapPlayerState, mapSubscriptions } from "./mapping";
 
+/**
+ * This is a player that wraps an underlying player and applies a mapping to all topic
+ * names in data emitted from the player. It is inserted into the player chain before
+ * UserNodePlayer so that UserNodePlayer can use the mapped topics.
+ */
 export class TopicMappingPlayer implements Player {
   readonly #player: Player;
 
-  #inputs: MappingInputs;
+  #inputs: Immutable<MappingInputs>;
   #pendingSubscriptions: undefined | SubscribePayload[];
   #skipMapping: boolean;
 
@@ -26,8 +31,8 @@ export class TopicMappingPlayer implements Player {
 
   public constructor(
     player: Player,
-    mappers: readonly RegisterTopicMapperArgs[],
-    variables: GlobalVariables,
+    mappers: Immutable<TopicMapper[]>,
+    variables: Immutable<GlobalVariables>,
   ) {
     this.#player = player;
     this.#skipMapping = mappers.length === 0;
@@ -44,7 +49,7 @@ export class TopicMappingPlayer implements Player {
     this.#player.setListener(async (state) => await this.#onPlayerState(state));
   }
 
-  public setMappers(mappers: readonly RegisterTopicMapperArgs[]): void {
+  public setMappers(mappers: readonly TopicMapper[]): void {
     this.#inputs = { ...this.#inputs, mappers };
     this.#skipMapping = mappers.length === 0;
   }

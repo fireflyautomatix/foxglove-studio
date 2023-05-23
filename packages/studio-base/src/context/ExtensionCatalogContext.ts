@@ -8,8 +8,9 @@ import { StoreApi, useStore } from "zustand";
 import { useGuaranteedContext } from "@foxglove/hooks";
 import {
   ExtensionPanelRegistration,
+  Immutable,
   RegisterMessageConverterArgs,
-  RegisterTopicMapperArgs,
+  TopicMapper,
 } from "@foxglove/studio";
 import { ExtensionInfo, ExtensionNamespace } from "@foxglove/studio-base/types/Extensions";
 
@@ -19,7 +20,7 @@ export type RegisteredPanel = {
   registration: ExtensionPanelRegistration;
 };
 
-export type ExtensionCatalog = {
+export type ExtensionCatalog = Immutable<{
   downloadExtension: (url: string) => Promise<Uint8Array>;
   installExtension: (
     namespace: ExtensionNamespace,
@@ -30,9 +31,9 @@ export type ExtensionCatalog = {
 
   installedExtensions: undefined | ExtensionInfo[];
   installedPanels: undefined | Record<string, RegisteredPanel>;
-  installedMessageConverters: undefined | readonly RegisterMessageConverterArgs<unknown>[];
-  installedTopicMappers: undefined | readonly RegisterTopicMapperArgs[];
-};
+  installedMessageConverters: undefined | RegisterMessageConverterArgs<unknown>[];
+  installedTopicMappers: undefined | TopicMapper[];
+}>;
 
 export const ExtensionCatalogContext = createContext<undefined | StoreApi<ExtensionCatalog>>(
   undefined,
