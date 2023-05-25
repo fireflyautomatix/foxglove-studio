@@ -11,7 +11,7 @@ import {
   SlideAdd24Regular,
 } from "@fluentui/react-icons";
 import PersonIcon from "@mui/icons-material/Person";
-import { Avatar, Button, IconButton, Tooltip, AppBar as MuiAppBar } from "@mui/material";
+import { Avatar, Button, IconButton, Tooltip, AppBar as MuiAppBar, useTheme } from "@mui/material";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import tc from "tinycolor2";
@@ -47,12 +47,7 @@ import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 import { AddPanelMenu } from "./AddPanelMenu";
 import { DataSource } from "./DataSource";
 import { UserMenu } from "./UserMenu";
-import {
-  APP_BAR_BACKGROUND_COLOR,
-  APP_BAR_FOREGROUND_COLOR,
-  APP_BAR_HEIGHT,
-  APP_BAR_PRIMARY_COLOR,
-} from "./constants";
+import { APP_BAR_HEIGHT } from "./constants";
 
 const useStyles = makeStyles<{ leftInset?: number; debugDragRegion?: boolean }, "avatar">()(
   (theme, { leftInset, debugDragRegion = false }, classes) => {
@@ -66,9 +61,9 @@ const useStyles = makeStyles<{ leftInset?: number; debugDragRegion?: boolean }, 
       appBar: {
         gridArea: "appbar",
         boxShadow: "none",
-        backgroundColor: APP_BAR_BACKGROUND_COLOR[theme.palette.mode],
+        backgroundColor: theme.palette.appBar.main,
         borderBottom: "none",
-        color: APP_BAR_FOREGROUND_COLOR,
+        color: theme.palette.common.white,
         height: APP_BAR_HEIGHT,
 
         // Leave space for system window controls on the right on Windows.
@@ -87,18 +82,18 @@ const useStyles = makeStyles<{ leftInset?: number; debugDragRegion?: boolean }, 
       logo: {
         padding: theme.spacing(0.75, 0.5),
         fontSize: "2rem",
-        color: APP_BAR_PRIMARY_COLOR,
+        color: theme.palette.appBar.primary,
         borderRadius: 0,
 
         "svg:not(.MuiSvgIcon-root)": {
           fontSize: "1em",
         },
         "&:hover": {
-          backgroundColor: tc(APP_BAR_FOREGROUND_COLOR).setAlpha(0.08).toRgbString(),
+          backgroundColor: tc(theme.palette.common.white).setAlpha(0.08).toRgbString(),
         },
         "&.Mui-selected": {
-          backgroundColor: APP_BAR_PRIMARY_COLOR,
-          color: APP_BAR_FOREGROUND_COLOR,
+          backgroundColor: theme.palette.appBar.primary,
+          color: theme.palette.common.white,
         },
         "&.Mui-disabled": {
           color: "currentColor",
@@ -139,7 +134,7 @@ const useStyles = makeStyles<{ leftInset?: number; debugDragRegion?: boolean }, 
       },
       keyEquivalent: {
         fontFamily: fonts.MONOSPACE,
-        background: tc(APP_BAR_FOREGROUND_COLOR).darken(45).toString(),
+        background: tc(theme.palette.common.white).darken(45).toString(),
         padding: theme.spacing(0, 0.5),
         aspectRatio: 1,
         borderRadius: theme.shape.borderRadius,
@@ -149,8 +144,8 @@ const useStyles = makeStyles<{ leftInset?: number; debugDragRegion?: boolean }, 
         marginTop: `${theme.spacing(0.5)} !important`,
       },
       avatar: {
-        color: APP_BAR_FOREGROUND_COLOR,
-        backgroundColor: tc(APP_BAR_BACKGROUND_COLOR[theme.palette.mode]).lighten().toString(),
+        color: theme.palette.common.white,
+        backgroundColor: tc(theme.palette.appBar.main).lighten().toString(),
         height: theme.spacing(3.5),
         width: theme.spacing(3.5),
       },
@@ -159,21 +154,17 @@ const useStyles = makeStyles<{ leftInset?: number; debugDragRegion?: boolean }, 
         borderRadius: 0,
 
         "&:hover": {
-          backgroundColor: tc(APP_BAR_FOREGROUND_COLOR).setAlpha(0.08).toString(),
+          backgroundColor: tc(theme.palette.common.white).setAlpha(0.08).toString(),
 
           [`.${classes.avatar}`]: {
-            backgroundColor: tc(APP_BAR_BACKGROUND_COLOR[theme.palette.mode])
-              .lighten(20)
-              .toString(),
+            backgroundColor: tc(theme.palette.appBar.main).lighten(20).toString(),
           },
         },
         "&.Mui-selected": {
-          backgroundColor: APP_BAR_PRIMARY_COLOR,
+          backgroundColor: theme.palette.appBar.primary,
 
           [`.${classes.avatar}`]: {
-            backgroundColor: tc(APP_BAR_BACKGROUND_COLOR[theme.palette.mode])
-              .setAlpha(0.3)
-              .toString(),
+            backgroundColor: tc(theme.palette.appBar.main).setAlpha(0.3).toString(),
           },
         },
       },
@@ -183,11 +174,12 @@ const useStyles = makeStyles<{ leftInset?: number; debugDragRegion?: boolean }, 
       },
       button: {
         marginInline: theme.spacing(1),
-        backgroundColor: APP_BAR_PRIMARY_COLOR,
+        backgroundColor: theme.palette.appBar.primary,
 
         "&:hover": {
-          backgroundColor: theme.palette.augmentColor({ color: { main: APP_BAR_PRIMARY_COLOR } })
-            .dark,
+          backgroundColor: theme.palette.augmentColor({
+            color: { main: theme.palette.appBar.primary as string },
+          }).dark,
         },
       },
     };
@@ -217,6 +209,7 @@ export function AppBar(props: AppBarProps): JSX.Element {
     onUnmaximizeWindow,
     showCustomWindowControls = false,
   } = props;
+  const theme = useTheme();
   const { classes, cx } = useStyles({ leftInset, debugDragRegion });
   const { currentUser, signIn } = useCurrentUser();
   const { t } = useTranslation("appBar");
@@ -284,7 +277,7 @@ export function AppBar(props: AppBarProps): JSX.Element {
                 <FoxgloveLogo fontSize="inherit" color="inherit" />
                 <ChevronDown12Regular
                   className={classes.dropDownIcon}
-                  primaryFill={APP_BAR_FOREGROUND_COLOR}
+                  primaryFill={theme.palette.common.white}
                 />
               </IconButton>
               <AppMenu
