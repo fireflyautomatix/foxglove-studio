@@ -37,7 +37,7 @@ export const dark: PaletteOptions = {
   secondary: { main: "#b1b1b1" },
   error: { main: "#f54966" },
   warning: { main: "#eba800" },
-  success: { main: "#4caf72" },
+  success: { main: "#92c353" },
   info: { main: "#29bee7" },
   text: {
     primary: "#e1e1e4",
