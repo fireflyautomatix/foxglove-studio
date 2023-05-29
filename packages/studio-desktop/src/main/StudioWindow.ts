@@ -19,11 +19,7 @@ import path from "path";
 
 import Logger from "@foxglove/log";
 import { AppSetting } from "@foxglove/studio-base/src/AppSetting";
-import {
-  APP_BAR_BACKGROUND_COLOR,
-  APP_BAR_HEIGHT,
-  APP_BAR_FOREGROUND_COLOR,
-} from "@foxglove/studio-base/src/components/AppBar/constants";
+import { APP_BAR_HEIGHT } from "@foxglove/studio-base/src/components/AppBar/constants";
 import * as palette from "@foxglove/studio-base/src/theme/palette";
 
 import StudioAppUpdater from "./StudioAppUpdater";
@@ -102,14 +98,14 @@ const getTitleCase = (baseString: string): string =>
 
 type ClearableMenu = Menu & { clear: () => void };
 
+const theme = palette[nativeTheme.shouldUseDarkColors ? "dark" : "light"];
+
 function getTitleBarOverlayOptions(): TitleBarOverlayOptions {
   if (isWindows) {
     return {
       height: APP_BAR_HEIGHT,
-      color: nativeTheme.shouldUseDarkColors
-        ? APP_BAR_BACKGROUND_COLOR.dark
-        : APP_BAR_BACKGROUND_COLOR.light,
-      symbolColor: APP_BAR_FOREGROUND_COLOR,
+      color: theme.appBar.main,
+      symbolColor: theme.common?.white,
     };
   }
   return {};
