@@ -6,16 +6,15 @@ import { PaletteOptions } from "@mui/material/styles";
 import { CSSProperties } from "react";
 
 declare module "@mui/material/styles" {
-  interface PaletteOptions {
-    name: string;
-  }
   interface Palette {
+    name: string;
     appBar: {
       main: CSSProperties["color"];
       primary: CSSProperties["color"];
     };
   }
   interface PaletteOptions {
+    name: string;
     appBar: {
       main: CSSProperties["color"];
       primary: CSSProperties["color"];
