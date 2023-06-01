@@ -11,7 +11,7 @@ import {
   SlideAdd24Regular,
 } from "@fluentui/react-icons";
 import PersonIcon from "@mui/icons-material/Person";
-import { Avatar, Button, IconButton, Tooltip, AppBar as MuiAppBar, useTheme } from "@mui/material";
+import { Avatar, Button, IconButton, Tooltip, AppBar as MuiAppBar } from "@mui/material";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import tc from "tinycolor2";
@@ -209,8 +209,7 @@ export function AppBar(props: AppBarProps): JSX.Element {
     onUnmaximizeWindow,
     showCustomWindowControls = false,
   } = props;
-  const theme = useTheme();
-  const { classes, cx } = useStyles({ leftInset, debugDragRegion });
+  const { classes, cx, theme } = useStyles({ leftInset, debugDragRegion });
   const { currentUser, signIn } = useCurrentUser();
   const { t } = useTranslation("appBar");
 
