@@ -25,6 +25,9 @@ export class TopicMappingPlayer implements Player {
 
   #inputs: Immutable<MappingInputs>;
   #pendingSubscriptions: undefined | SubscribePayload[];
+
+  // True if no mappers are active and we can pass calls directly through to the
+  // underlying player.
   #skipMapping: boolean;
 
   #listener?: (state: PlayerState) => Promise<void>;
@@ -62,9 +65,9 @@ export class TopicMappingPlayer implements Player {
     if (this.#skipMapping) {
       this.#player.setSubscriptions(subscriptions);
     } else {
-      // If we have mappers but haven't yet recieved a topic list from an active state
-      // from the wrapped player yet we have to delay setSubscriptions until we have the
-      // topic list to set up the mappings.
+      // If we have mappers but haven't recieved a topic list from an active state from
+      // the wrapped player yet we have to delay setSubscriptions until we have the topic
+      // list to set up the mappings.
       if (this.#inputs.topics != undefined) {
         const mappedSubscriptions = mapSubscriptions(this.#inputs, subscriptions);
         this.#player.setSubscriptions(mappedSubscriptions);

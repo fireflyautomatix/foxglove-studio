@@ -7,43 +7,9 @@ import {
   MappingInputs,
   mapPlayerState,
 } from "@foxglove/studio-base/players/TopicMappingPlayer/mapping";
-import {
-  PlayerPresence,
-  PlayerState,
-  PlayerStateActiveData,
-  Topic,
-} from "@foxglove/studio-base/players/types";
+import { Topic } from "@foxglove/studio-base/players/types";
 
-function fakePlayerState(
-  overrides?: Partial<PlayerState>,
-  dataOverrides?: Partial<PlayerStateActiveData>,
-): PlayerState {
-  return {
-    activeData: {
-      messages: [],
-      currentTime: { sec: 0, nsec: 0 },
-      endTime: { sec: 0, nsec: 0 },
-      lastSeekTime: 1,
-      topics: [],
-      speed: 1,
-      isPlaying: false,
-      topicStats: new Map(),
-      startTime: { sec: 0, nsec: 0 },
-      datatypes: new Map(),
-      totalBytesReceived: 0,
-      ...dataOverrides,
-    },
-    capabilities: [],
-    presence: PlayerPresence.PRESENT,
-    profile: undefined,
-    playerId: "1",
-    progress: {
-      fullyLoadedFractionRanges: [],
-      messageCache: undefined,
-    },
-    ...overrides,
-  };
-}
+import { mockPlayerState } from "./mocks";
 
 describe("mapPlayerState", () => {
   it("maps blocks", () => {
@@ -51,7 +17,7 @@ describe("mapPlayerState", () => {
       { name: "/topic_1", schemaName: "whatever" },
       { name: "/topic_2", schemaName: "whatever" },
     ];
-    const state = fakePlayerState(
+    const state = mockPlayerState(
       {
         progress: {
           fullyLoadedFractionRanges: [],
@@ -115,7 +81,7 @@ describe("mapPlayerState", () => {
       { name: "/topic_1", schemaName: "whatever" },
       { name: "/topic_2", schemaName: "whatever" },
     ];
-    const state = fakePlayerState(undefined, {
+    const state = mockPlayerState(undefined, {
       topics,
       messages: [
         {
@@ -151,7 +117,7 @@ describe("mapPlayerState", () => {
       { name: "/topic_1", schemaName: "whatever" },
       { name: "/topic_2", schemaName: "whatever" },
     ];
-    const state = fakePlayerState(undefined, {
+    const state = mockPlayerState(undefined, {
       topics,
       publishedTopics: new Map([
         ["1", new Set(["/topic_1", "/topic_2"])],
@@ -177,7 +143,7 @@ describe("mapPlayerState", () => {
       { name: "/topic_1", schemaName: "whatever" },
       { name: "/topic_2", schemaName: "whatever" },
     ];
-    const state = fakePlayerState(undefined, {
+    const state = mockPlayerState(undefined, {
       topics,
       subscribedTopics: new Map([
         ["1", new Set(["/topic_1", "/topic_2"])],
@@ -203,7 +169,7 @@ describe("mapPlayerState", () => {
       { name: "/topic_1", schemaName: "whatever" },
       { name: "/topic_2", schemaName: "whatever" },
     ];
-    const state = fakePlayerState(undefined, { topics });
+    const state = mockPlayerState(undefined, { topics });
     const inputs: MappingInputs = {
       mappers: [() => new Map([["/topic_1", "/renamed_topic_1"]])],
       topics,
@@ -221,7 +187,7 @@ describe("mapPlayerState", () => {
       { name: "/topic_1", schemaName: "whatever" },
       { name: "/topic_2", schemaName: "whatever" },
     ];
-    const state = fakePlayerState(undefined, { topics });
+    const state = mockPlayerState(undefined, { topics });
     const inputs: MappingInputs = {
       mappers: [
         (args: Parameters<TopicMapper>[0]) =>
