@@ -18,7 +18,7 @@ import {
   toString,
   toRFC3339String,
 } from "@foxglove/rostime";
-import { MessageEvent, ParameterValue } from "@foxglove/studio";
+import { Asset, AssetInfo, MessageEvent, ParameterValue } from "@foxglove/studio";
 import NoopMetricsCollector from "@foxglove/studio-base/players/NoopMetricsCollector";
 import PlayerProblemManager from "@foxglove/studio-base/players/PlayerProblemManager";
 import {
@@ -182,6 +182,10 @@ export class IterablePlayer implements Player {
     this.#enablePreload = enablePreload ?? true;
     this.#sourceId = sourceId;
 
+    if (this.#iterableSource.listAssets && this.#iterableSource.fetchAsset) {
+      this.#capabilities.push(PlayerCapabilities.assets);
+    }
+
     // Wrap emitStateImpl in a debouncePromise for our states to call. Since we can emit from states
     // or from block loading updates we use debouncePromise to guard against concurrent emits.
     this.#queueEmitState = debouncePromise(this.#emitStateImpl.bind(this));
@@ -330,6 +334,20 @@ export class IterablePlayer implements Player {
 
   public async callService(): Promise<unknown> {
     throw new Error("Service calls are not supported by this data source");
+  }
+
+  public async listAssets(): Promise<AssetInfo[]> {
+    if (!this.#iterableSource.listAssets) {
+      throw new Error("listAssets is not supported by this data source");
+    }
+    return await this.#iterableSource.listAssets();
+  }
+
+  public async fetchAsset(name: string): Promise<Asset> {
+    if (!this.#iterableSource.fetchAsset) {
+      throw new Error("fetchAsset is not supported by this data source");
+    }
+    return await this.#iterableSource.fetchAsset(name);
   }
 
   public close(): void {
