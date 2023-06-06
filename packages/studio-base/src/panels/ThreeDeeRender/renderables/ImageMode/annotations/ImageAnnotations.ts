@@ -9,7 +9,7 @@ import { TwoKeyMap } from "@foxglove/den/collection";
 import { PinholeCameraModel } from "@foxglove/den/image";
 import { ImageAnnotations as FoxgloveImageAnnotations } from "@foxglove/schemas";
 import { Immutable, MessageEvent, SettingsTreeAction, Topic } from "@foxglove/studio";
-import { normalizeAnnotations } from "@foxglove/studio-base/panels/Image/lib/normalizeAnnotations";
+import { Annotation } from "@foxglove/studio-base/panels/Image/types";
 import {
   ImageMarker as RosImageMarker,
   ImageMarkerArray as RosImageMarkerArray,
@@ -17,12 +17,17 @@ import {
 import { LabelPool } from "@foxglove/three-text";
 
 import { RenderableTopicAnnotations } from "./RenderableTopicAnnotations";
-import { ImageAnnotationSubscription, ImageModeConfig } from "../../../IRenderer";
+import {
+  AnyRendererSubscription,
+  ImageAnnotationSubscription,
+  ImageModeConfig,
+} from "../../../IRenderer";
 import { SettingsTreeEntry } from "../../../SettingsManager";
 import { IMAGE_ANNOTATIONS_DATATYPES } from "../../../foxglove";
 import { IMAGE_MARKER_ARRAY_DATATYPES, IMAGE_MARKER_DATATYPES } from "../../../ros";
 import { topicIsConvertibleToSchema } from "../../../topicIsConvertibleToSchema";
 import { sortPrefixMatchesToFront } from "../../Images/topicPrefixMatching";
+import { MessageHandler, MessageRenderState } from "../MessageHandler";
 
 type TopicName = string & { __brand: "TopicName" };
 type SchemaName = string & { __brand: "SchemaName" };
@@ -36,11 +41,8 @@ interface ImageAnnotationsContext {
   config(): Immutable<ImageModeConfig>;
   updateConfig(updateHandler: (draft: ImageModeConfig) => void): void;
   updateSettingsTree(): void;
-  addSchemaSubscriptions<T>(
-    schemaNames: Set<string>,
-    handler: (messageEvent: MessageEvent<T>) => void,
-  ): void;
   labelPool: LabelPool;
+  messageHandler: MessageHandler;
 }
 
 const ALL_SUPPORTED_SCHEMAS = new Set([
@@ -88,10 +90,17 @@ export class ImageAnnotations extends THREE.Object3D {
     this.#canvasWidth = context.initialCanvasWidth;
     this.#canvasHeight = context.initialCanvasHeight;
     this.#pixelRatio = context.initialPixelRatio;
+    context.messageHandler.addListener(this.#updateFromMessageState);
   }
 
-  public addSubscriptions(): void {
-    this.#context.addSchemaSubscriptions(ALL_SUPPORTED_SCHEMAS, this.#handleMessage.bind(this));
+  public getSubscriptions(): readonly AnyRendererSubscription[] {
+    return [
+      {
+        type: "schema",
+        schemaNames: ALL_SUPPORTED_SCHEMAS,
+        subscription: { handler: this.#context.messageHandler.handleAnnotations },
+      },
+    ];
   }
 
   public dispose(): void {
@@ -135,14 +144,18 @@ export class ImageAnnotations extends THREE.Object3D {
     }
   }
 
+  #updateFromMessageState = (newState: MessageRenderState) => {
+    if (newState.annotationsByTopicSchema != undefined) {
+      for (const { originalMessage, annotations } of newState.annotationsByTopicSchema.values()) {
+        this.#handleMessage(originalMessage, annotations);
+      }
+    }
+  };
+
   #handleMessage(
     messageEvent: MessageEvent<FoxgloveImageAnnotations | RosImageMarker | RosImageMarkerArray>,
+    annotations: Annotation[],
   ) {
-    const annotations = normalizeAnnotations(messageEvent.message, messageEvent.schemaName);
-    if (!annotations) {
-      return;
-    }
-
     let renderable = this.#renderablesByTopicAndSchemaName.get(
       messageEvent.topic as TopicName,
       messageEvent.schemaName as SchemaName,
@@ -204,6 +217,9 @@ export class ImageAnnotations extends THREE.Object3D {
         draft.annotations.push(subscription);
       }
     });
+    this.#context.messageHandler.setConfig({
+      annotations: this.#context.config().annotations,
+    } as Readonly<Partial<ImageModeConfig>>);
     const renderable = this.#renderablesByTopicAndSchemaName.get(
       topic.name as TopicName,
       (convertTo ?? topic.schemaName) as SchemaName,
