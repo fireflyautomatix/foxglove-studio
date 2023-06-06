@@ -98,9 +98,9 @@ const getTitleCase = (baseString: string): string =>
 
 type ClearableMenu = Menu & { clear: () => void };
 
-const theme = palette[nativeTheme.shouldUseDarkColors ? "dark" : "light"];
+function getTitleBarOverlayOptions({ isDark }: { isDark: boolean }): TitleBarOverlayOptions {
+  const theme = palette[isDark ? "dark" : "light"];
 
-function getTitleBarOverlayOptions(): TitleBarOverlayOptions {
   if (isWindows) {
     return {
       height: APP_BAR_HEIGHT,
@@ -138,7 +138,7 @@ function newStudioWindow(deepLinks: string[] = [], reloadMainWindow: () => void)
     titleBarStyle: enableNewTopNav ? "hidden" : "default",
     trafficLightPosition:
       isMac && enableNewTopNav ? { x: macTrafficLightInset, y: macTrafficLightInset } : undefined,
-    titleBarOverlay: getTitleBarOverlayOptions(),
+    titleBarOverlay: getTitleBarOverlayOptions({ isDark }),
     webPreferences: {
       contextIsolation: true,
       sandbox: false, // Allow preload script to access Node builtins
@@ -167,7 +167,7 @@ function newStudioWindow(deepLinks: string[] = [], reloadMainWindow: () => void)
   nativeTheme.on("updated", () => {
     if (isWindows) {
       // Although the TS types say this function is always available, it is undefined on non-Windows platforms
-      browserWindow.setTitleBarOverlay(getTitleBarOverlayOptions());
+      browserWindow.setTitleBarOverlay(getTitleBarOverlayOptions({ isDark }));
     }
   });
 
