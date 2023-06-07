@@ -3,26 +3,26 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import {
-  app,
-  dialog,
   BrowserWindow,
   BrowserWindowConstructorOptions,
   Menu,
-  MenuItemConstructorOptions,
-  shell,
   MenuItem,
-  systemPreferences,
-  nativeTheme,
+  MenuItemConstructorOptions,
   TitleBarOverlayOptions,
+  app,
+  nativeTheme,
+  shell,
+  systemPreferences,
 } from "electron";
 import path from "path";
 
 import Logger from "@foxglove/log";
+import { NativeAppMenuEvent } from "@foxglove/studio-base";
 import { AppSetting } from "@foxglove/studio-base/src/AppSetting";
 import {
   APP_BAR_BACKGROUND_COLOR,
-  APP_BAR_HEIGHT,
   APP_BAR_FOREGROUND_COLOR,
+  APP_BAR_HEIGHT,
 } from "@foxglove/studio-base/src/components/AppBar/constants";
 import * as palette from "@foxglove/studio-base/src/theme/palette";
 
@@ -32,7 +32,7 @@ import { getAppSetting } from "./settings";
 import { simulateUserClick } from "./simulateUserClick";
 import { getTelemetrySettings } from "./telemetry";
 import { encodeRendererArg } from "../common/rendererArgs";
-import { FOXGLOVE_PRODUCT_NAME, FOXGLOVE_PRODUCT_VERSION } from "../common/webpackDefines";
+import { FOXGLOVE_PRODUCT_NAME } from "../common/webpackDefines";
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 
@@ -44,61 +44,6 @@ const rendererPath = MAIN_WINDOW_WEBPACK_ENTRY;
 
 const closeMenuItem: MenuItemConstructorOptions = isMac ? { role: "close" } : { role: "quit" };
 const log = Logger.getLogger(__filename);
-
-type SectionKey = "app" | "panels" | "resources" | "products" | "contact" | "legal";
-type HelpInfo = {
-  title: string;
-  content?: React.ReactNode;
-  url?: string;
-};
-const helpMenuItems: Map<SectionKey, { subheader: string; links: HelpInfo[] }> = new Map([
-  [
-    "resources",
-    {
-      subheader: "External resources",
-      links: [
-        { title: "Browse docs", url: "https://foxglove.dev/docs" },
-        { title: "Join our community", url: "https://foxglove.dev/community" },
-      ],
-    },
-  ],
-  [
-    "products",
-    {
-      subheader: "Products",
-      links: [
-        { title: "Foxglove Studio", url: "https://foxglove.dev/studio" },
-        { title: "Foxglove Data Platform", url: "https://foxglove.dev/data-platform" },
-      ],
-    },
-  ],
-  [
-    "contact",
-    {
-      subheader: "Contact",
-      links: [
-        { title: "Give feedback", url: "https://foxglove.dev/contact" },
-        { title: "Schedule a demo", url: "https://foxglove.dev/demo" },
-      ],
-    },
-  ],
-  [
-    "legal",
-    {
-      subheader: "Legal",
-      links: [
-        { title: "License terms", url: "https://foxglove.dev/legal/studio-license" },
-        { title: "Privacy policy", url: "https://foxglove.dev/legal/privacy" },
-      ],
-    },
-  ],
-]);
-
-const getTitleCase = (baseString: string): string =>
-  baseString
-    .split(" ")
-    .map((word) => `${word[0]?.toUpperCase()}${word.substring(1)}`)
-    .join(" ");
 
 type ClearableMenu = Menu & { clear: () => void };
 
@@ -264,6 +209,10 @@ function buildMenu(browserWindow: BrowserWindow): Menu {
     enabled: StudioAppUpdater.Instance().canCheckForUpdates(),
   };
 
+  function sendNativeAppMenuEvent(event: NativeAppMenuEvent) {
+    browserWindow.webContents.send(event);
+  }
+
   if (isMac) {
     menuTemplate.push({
       role: "appMenu",
@@ -272,12 +221,6 @@ function buildMenu(browserWindow: BrowserWindow): Menu {
         { role: "about" },
         checkForUpdatesItem,
         { type: "separator" },
-
-        {
-          label: "Settings…",
-          accelerator: "CommandOrControl+,",
-          click: () => browserWindow.webContents.send("open-app-settings"),
-        },
         { role: "services" },
         { type: "separator" },
 
@@ -302,16 +245,6 @@ function buildMenu(browserWindow: BrowserWindow): Menu {
           new StudioWindow().load();
         },
       },
-      ...(isMac
-        ? []
-        : [
-            { type: "separator" } as const,
-            {
-              label: "Settings…",
-              accelerator: "CommandOrControl+,",
-              click: () => browserWindow.webContents.send("open-app-settings"),
-            } as const,
-          ]),
       { type: "separator" },
       closeMenuItem,
     ],
@@ -321,16 +254,6 @@ function buildMenu(browserWindow: BrowserWindow): Menu {
     role: "editMenu",
     label: "Edit",
     submenu: [
-      {
-        label: "Add Panel to Layout",
-        click: () => browserWindow.webContents.send("open-add-panel"),
-      },
-      {
-        label: "Edit Panel Settings",
-        click: () => browserWindow.webContents.send("open-panel-settings"),
-      },
-      { type: "separator" },
-
       { role: "undo" },
       { role: "redo" },
       { type: "separator" },
@@ -377,12 +300,6 @@ function buildMenu(browserWindow: BrowserWindow): Menu {
     role: "viewMenu",
     label: "View",
     submenu: [
-      { label: "Layouts", click: () => browserWindow.webContents.send("open-layouts") },
-      { label: "Variables", click: () => browserWindow.webContents.send("open-variables") },
-      { label: "Extensions", click: () => browserWindow.webContents.send("open-extensions") },
-      { label: "Account", click: () => browserWindow.webContents.send("open-account") },
-      { type: "separator" },
-
       { role: "resetZoom" },
       { role: "zoomIn" },
       { role: "zoomOut" },
@@ -406,50 +323,21 @@ function buildMenu(browserWindow: BrowserWindow): Menu {
     ],
   });
 
-  const showAboutDialog = () => {
-    void dialog.showMessageBox(browserWindow, {
-      type: "info",
-      title: `About ${FOXGLOVE_PRODUCT_NAME}`,
-      message: FOXGLOVE_PRODUCT_NAME,
-      detail: `Version: ${FOXGLOVE_PRODUCT_VERSION}`,
-    });
-  };
-
-  const helpSidebarItems = Array.from(helpMenuItems.values(), ({ subheader, links }) => ({
-    label: getTitleCase(subheader),
-    submenu: links.map(({ title, url }) => ({
-      label: getTitleCase(title),
-      click: url
-        ? async () => await shell.openExternal(url)
-        : () => browserWindow.webContents.send("open-help"),
-    })),
-  }));
-
   menuTemplate.push({
     role: "help",
     submenu: [
       {
-        label: "Explore Sample Data",
-        click: () => browserWindow.webContents.send("open-sample-data"),
+        label: "About",
+        click: () => sendNativeAppMenuEvent("open-help-about"),
       },
-      { type: "separator" },
-      ...helpSidebarItems,
       {
-        label: "Learn More",
-        click: async () => await shell.openExternal("https://foxglove.dev"),
+        label: "View our docs",
+        click: () => sendNativeAppMenuEvent("open-help-docs"),
       },
-      ...(isMac
-        ? []
-        : [
-            { type: "separator" } as const,
-            {
-              label: "About",
-              click() {
-                showAboutDialog();
-              },
-            },
-            checkForUpdatesItem,
-          ]),
+      {
+        label: "Join our Slack",
+        click: () => sendNativeAppMenuEvent("open-help-slack"),
+      },
     ],
   });
 
@@ -541,6 +429,10 @@ class StudioWindow {
     return StudioWindow.#windowsByContentId.get(id);
   }
 
+  #sendNativeAppMenuEvent(event: NativeAppMenuEvent) {
+    this.#browserWindow.webContents.send(event);
+  }
+
   #reloadMainWindow(): void {
     const windowWasMaximized = this.#browserWindow.isMaximized();
     this.#browserWindow.close();
@@ -624,53 +516,43 @@ class StudioWindow {
 
     fileMenu.submenu?.append(
       new MenuItem({
-        label: "Open File…",
+        label: "Open…",
         click: async () => {
           await simulateUserClick(browserWindow);
-          browserWindow.webContents.send("open-file");
+          this.#sendNativeAppMenuEvent("open");
         },
       }),
     );
 
     fileMenu.submenu?.append(
       new MenuItem({
-        label: "Open Remote File…",
+        label: "Open local file…",
         click: async () => {
           await simulateUserClick(browserWindow);
-          browserWindow.webContents.send("open-remote-file");
+          this.#sendNativeAppMenuEvent("open-file");
         },
       }),
     );
 
     fileMenu.submenu?.append(
       new MenuItem({
-        label: "Open Connection",
-        submenu: Array.from(this.#inputSources).map((name) => ({
-          // Electron menus require a preceding & to escape the & char
-          label: name.replace(/&/g, "&&"),
-          click: async () => {
-            await simulateUserClick(browserWindow);
-            browserWindow.webContents.send("menu.click-input-source", name);
-          },
-        })),
+        label: "Open connection...",
+        click: async () => {
+          await simulateUserClick(browserWindow);
+          this.#sendNativeAppMenuEvent("open-connection");
+        },
       }),
     );
 
-    if (!isMac) {
-      fileMenu.submenu?.append(
-        new MenuItem({
-          type: "separator",
-        }),
-      );
-
-      fileMenu.submenu?.append(
-        new MenuItem({
-          label: "Settings…",
-          accelerator: "CommandOrControl+,",
-          click: () => browserWindow.webContents.send("open-app-settings"),
-        }),
-      );
-    }
+    fileMenu.submenu?.append(
+      new MenuItem({
+        label: "Explore sample data",
+        click: async () => {
+          await simulateUserClick(browserWindow);
+          this.#sendNativeAppMenuEvent("open-demo");
+        },
+      }),
+    );
 
     fileMenu.submenu?.append(
       new MenuItem({
