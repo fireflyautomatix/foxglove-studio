@@ -13,7 +13,6 @@ import { fromSec, toSec } from "@foxglove/rostime";
 import {
   AppSettingValue,
   Asset,
-  AssetInfo,
   ExtensionPanelRegistration,
   PanelExtensionContext,
   ParameterValue,
@@ -467,15 +466,6 @@ function PanelExtensionAdapter(props: PanelExtensionAdapterProps): JSX.Element {
               throw new Error("Service call after panel was unmounted");
             }
             return await getMessagePipelineContext().callService(service, request);
-          }
-        : undefined,
-
-      listAssets: capabilities.includes(PlayerCapabilities.assets)
-        ? async (): Promise<AssetInfo[]> => {
-            if (!isMounted()) {
-              throw new Error("Asset list after panel was unmounted");
-            }
-            return await getMessagePipelineContext().listAssets();
           }
         : undefined,
 
