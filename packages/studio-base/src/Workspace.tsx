@@ -55,6 +55,7 @@ import {
   StudioLogsSettingsSidebar,
 } from "@foxglove/studio-base/components/StudioLogsSettings";
 import { SyncAdapters } from "@foxglove/studio-base/components/SyncAdapters";
+import { UpgradeBanner } from "@foxglove/studio-base/components/UpgradeBanner";
 import VariablesList from "@foxglove/studio-base/components/VariablesList";
 import { WorkspaceDialogs } from "@foxglove/studio-base/components/WorkspaceDialogs";
 import { useAppContext } from "@foxglove/studio-base/context/AppContext";
@@ -240,7 +241,7 @@ function WorkspaceContent(props: WorkspaceContentProps): JSX.Element {
   );
   // Since we can't toggle the title bar on an electron window, keep the setting at its initial
   // value until the app is reloaded/relaunched.
-  const [currentEnableNewTopNav = true] = useAppConfigurationValue<boolean>(
+  const [currentEnableNewTopNav = false] = useAppConfigurationValue<boolean>(
     AppSetting.ENABLE_NEW_TOPNAV,
   );
 
@@ -641,7 +642,7 @@ function WorkspaceContent(props: WorkspaceContentProps): JSX.Element {
       <SyncAdapters />
       <KeyListener global keyDownHandlers={keyDownHandlers} />
       <div className={classes.container} ref={containerRef} tabIndex={0}>
-        {enableNewTopNav && (
+        {enableNewTopNav ? (
           <AppBar
             leftInset={props.appBarLeftInset}
             onDoubleClick={props.onAppBarDoubleClick}
@@ -652,6 +653,8 @@ function WorkspaceContent(props: WorkspaceContentProps): JSX.Element {
             onUnmaximizeWindow={props.onUnmaximizeWindow}
             onCloseWindow={props.onCloseWindow}
           />
+        ) : (
+          <UpgradeBanner />
         )}
         <Sidebars
           items={sidebarItems}

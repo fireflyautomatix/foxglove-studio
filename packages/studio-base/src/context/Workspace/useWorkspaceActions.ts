@@ -30,6 +30,11 @@ import {
 import { useOpenFile } from "./useOpenFile";
 
 export type WorkspaceActions = {
+  bannerActions: {
+    newUI: {
+      dismiss: () => void;
+    };
+  };
   dialogActions: {
     dataSource: {
       close: () => void;
@@ -110,6 +115,15 @@ export function useWorkspaceActions(): WorkspaceActions {
 
   return useMemo(() => {
     return {
+      bannerActions: {
+        newUI: {
+          dismiss: () => {
+            set((draft) => {
+              draft.banners.newUI.dismissed = true;
+            });
+          },
+        },
+      },
       dialogActions: {
         dataSource: {
           close: () => {

@@ -32,6 +32,11 @@ export const RightSidebarItemKeys = ["events", "variables", "studio-logs-setting
 export type RightSidebarItemKey = (typeof RightSidebarItemKeys)[number];
 
 export type WorkspaceContextStore = {
+  banners: {
+    newUI: {
+      dismissed: boolean;
+    };
+  };
   dialogs: {
     dataSource: {
       activeDataSource: undefined | IDataSourceFactory;
