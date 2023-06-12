@@ -122,13 +122,31 @@ export class RenderableMeshResource extends RenderableMarker {
     url: string,
     opts: { useEmbeddedMaterials: boolean },
   ): Promise<THREE.Group | THREE.Scene | undefined> {
-    const cachedModel = await this.renderer.modelCache.load(url, {}, (err) => {
+    // Check if we can fetch the mesh as asset via the datasource
+    let assetUrl: string | undefined;
+    if (this.renderer.fetchAsset) {
+      try {
+        const asset = await this.renderer.fetchAsset(url);
+        assetUrl = URL.createObjectURL(
+          new File([asset.data], asset.name, { type: asset.mediaType }),
+        );
+      } catch {
+        assetUrl = undefined;
+      }
+    }
+
+    const meshUrl = assetUrl ?? url;
+    const cachedModel = await this.renderer.modelCache.load(meshUrl, {}, (err) => {
       this.renderer.settings.errors.add(
         this.userData.settingsPath,
         MESH_FETCH_FAILED,
-        `Error loading mesh from "${url}": ${err.message}`,
+        `Error loading mesh from "${meshUrl}": ${err.message}`,
       );
     });
+
+    if (assetUrl) {
+      URL.revokeObjectURL(assetUrl);
+    }
 
     if (!cachedModel) {
       if (!this.renderer.settings.errors.hasError(this.userData.settingsPath, MESH_FETCH_FAILED)) {

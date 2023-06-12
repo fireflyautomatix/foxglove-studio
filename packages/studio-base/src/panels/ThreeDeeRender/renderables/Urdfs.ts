@@ -487,6 +487,48 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
       throw new Error(`_fetchUrdf() should only be called for existing renderables`);
     }
 
+    const fetchUrdfFunc = (urdfUrl: string) => {
+      log.debug(`Fetching URDF from ${urdfUrl}`);
+      renderable.userData.fetching = { url: urdfUrl, control: new AbortController() };
+      fetch(urdfUrl, { signal: renderable.userData.fetching.control.signal })
+        // eslint-disable-next-line @typescript-eslint/promise-function-async
+        .then((res) => res.text())
+        .then((urdf) => {
+          log.debug(`Fetched ${urdf.length} byte URDF from ${urdfUrl}`);
+          this.renderer.settings.errors.remove(["layers", instanceId], FETCH_URDF_ERR);
+          this.#loadUrdf(instanceId, urdf);
+        })
+        .catch((unknown) => {
+          const err = unknown as Error;
+          const hasError = !err.message.startsWith("Failed to fetch");
+          const errMessage = `Failed to load URDF from "${urdfUrl}"${
+            hasError ? `: ${err.message}` : ""
+          }`;
+          this.renderer.settings.errors.add(["layers", instanceId], FETCH_URDF_ERR, errMessage);
+        });
+    };
+
+    if (this.renderer.fetchAsset) {
+      let assetUrl: string | undefined;
+      this.renderer
+        .fetchAsset(url)
+        .then((asset) => {
+          assetUrl = URL.createObjectURL(
+            new File([asset.data], asset.name, { type: asset.mediaType }),
+          );
+          fetchUrdfFunc(assetUrl);
+        })
+        .catch(() => {
+          // Asset not found, try to load it via fetch()
+          fetchUrdfFunc(url);
+        })
+        .finally(() => {
+          if (assetUrl) {
+            URL.revokeObjectURL(assetUrl);
+          }
+        });
+    }
+
     // Check if a valid URL was provided
     if (!isValidUrl(url)) {
       const path = renderable.userData.settingsPath;
@@ -509,23 +551,6 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
       // Cancel the previous fetch
       renderable.userData.fetching.control.abort();
     }
-
-    log.debug(`Fetching URDF from ${url}`);
-    renderable.userData.fetching = { url, control: new AbortController() };
-    fetch(url, { signal: renderable.userData.fetching.control.signal })
-      // eslint-disable-next-line @typescript-eslint/promise-function-async
-      .then((res) => res.text())
-      .then((urdf) => {
-        log.debug(`Fetched ${urdf.length} byte URDF from ${url}`);
-        this.renderer.settings.errors.remove(["layers", instanceId], FETCH_URDF_ERR);
-        this.#loadUrdf(instanceId, urdf);
-      })
-      .catch((unknown) => {
-        const err = unknown as Error;
-        const hasError = !err.message.startsWith("Failed to fetch");
-        const errMessage = `Failed to load URDF from "${url}"${hasError ? `: ${err.message}` : ""}`;
-        this.renderer.settings.errors.add(["layers", instanceId], FETCH_URDF_ERR, errMessage);
-      });
   }
 
   #getCurrentSettings(instanceId: string) {

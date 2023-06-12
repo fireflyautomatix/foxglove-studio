@@ -291,6 +291,13 @@ export function ThreeDeeRender(props: {
     }
   }, [context.dataSourceProfile, renderer]);
 
+  // Tell the renderer if the data source supports asset fetching
+  useEffect(() => {
+    if (renderer) {
+      renderer.fetchAsset = context.fetchAsset;
+    }
+  }, [context.fetchAsset, renderer]);
+
   // Save panel settings whenever they change
   const throttledSave = useDebouncedCallback(
     (newConfig: Immutable<RendererConfig>) => saveState(newConfig),

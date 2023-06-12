@@ -6,6 +6,7 @@ import EventEmitter from "eventemitter3";
 import * as THREE from "three";
 
 import {
+  Asset,
   Immutable,
   MessageEvent,
   ParameterValue,
@@ -352,4 +353,10 @@ export interface IRenderer extends EventEmitter<RendererEvents> {
   // Callback handlers
   animationFrame: () => void;
   queueAnimationFrame: () => void;
+
+  /**
+   * Fetch an asset from the current data source. This method throws an exception
+   * if the asset is not available.
+   */
+  fetchAsset?: (name: string) => Promise<Asset>;
 }
