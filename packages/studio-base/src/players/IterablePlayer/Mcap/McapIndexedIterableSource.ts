@@ -209,7 +209,9 @@ export class McapIndexedIterableSource implements IIterableSource {
   }
 
   public async fetchAsset(name: string): Promise<Asset> {
-    const attachments = this.#reader.readAttachments({ name });
+    const cleanName = name.replace("mcap-attachment://", "");
+    const attachments = this.#reader.readAttachments({ name: cleanName });
+
     for await (const attachment of attachments) {
       return {
         name: attachment.name,
