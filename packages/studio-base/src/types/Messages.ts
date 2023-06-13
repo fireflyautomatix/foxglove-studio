@@ -251,24 +251,6 @@ export type PointCloud2 = StampedMessage & {
   pose?: MutablePose;
 };
 
-export type Image = Readonly<
-  StampedMessage & {
-    height: number;
-    width: number;
-    encoding: string;
-    is_bigendian: boolean;
-    step: number;
-    data: Uint8Array;
-  }
->;
-
-export type CompressedImage = Readonly<
-  StampedMessage & {
-    format: string;
-    data: Uint8Array;
-  }
->;
-
 export type VelodynePacket = Readonly<{
   stamp: Time;
   data: Uint8Array; // 1206 bytes
