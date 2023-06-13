@@ -8,7 +8,7 @@ import * as THREE from "three";
 import { PinholeCameraModel } from "@foxglove/den/image";
 import { ImageAnnotations as FoxgloveImageAnnotations } from "@foxglove/schemas";
 import { Immutable, MessageEvent, SettingsTreeAction, Topic } from "@foxglove/studio";
-import { Annotation } from "@foxglove/studio-base/panels/Image/types";
+import { Annotation } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/ImageMode/annotations/types";
 import {
   ImageMarker as RosImageMarker,
   ImageMarkerArray as RosImageMarkerArray,
