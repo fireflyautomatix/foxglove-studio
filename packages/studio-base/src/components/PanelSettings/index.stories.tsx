@@ -73,7 +73,7 @@ export const PanelSelected: StoryObj = {
               fixture={{ ...fixture, savedProps: { "Sample1!abc": { someKey: "someVal" } } }}
               omitDragAndDrop
             >
-              <PanelSettings selectedPanelIdsForTests={selectedPanelIds} />
+              <PanelSettings disableToolbar selectedPanelIdsForTests={selectedPanelIds} />
             </PanelSetup>
           </MockCurrentLayoutProvider>
         </DndProvider>
@@ -118,11 +118,7 @@ export const PanelSelectedWithAppBar: StoryObj = {
               }}
               omitDragAndDrop
             >
-              <AppConfigurationContext.Provider
-                value={makeMockAppConfiguration([[AppSetting.ENABLE_NEW_TOPNAV, true]])}
-              >
-                <PanelSettings selectedPanelIdsForTests={selectedPanelIds} disableToolbar />
-              </AppConfigurationContext.Provider>
+              <PanelSettings disableToolbar selectedPanelIdsForTests={selectedPanelIds} />
             </PanelSetup>
           </MockCurrentLayoutProvider>
         </DndProvider>
