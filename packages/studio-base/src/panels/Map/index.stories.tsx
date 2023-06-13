@@ -46,12 +46,19 @@ function makeGeoJsonMessage(center: { lat: number; lon: number }) {
             [0.1 + center.lon, 0.1 + center.lat],
           ],
         },
+        properties: {
+          name: "Named Line",
+          style: {
+            color: "#00bbcc",
+            dashArray: "2 2 4",
+            lineCap: "butt",
+            opacity: "1",
+            weight: 12,
+          },
+        },
       },
       {
         type: "Feature",
-        properties: {
-          name: "Named Polygon",
-        },
         geometry: {
           type: "Polygon",
           coordinates: [
@@ -61,6 +68,14 @@ function makeGeoJsonMessage(center: { lat: number; lon: number }) {
               [center.lon + 0.2, center.lat],
             ],
           ],
+        },
+        properties: {
+          name: "Named Polygon",
+          style: {
+            color: "#ccbb00",
+            opacity: "0.4",
+            weight: 1,
+          },
         },
       },
       {
@@ -475,7 +490,7 @@ export const GeoJSON: StoryObj = {
       <PanelSetup fixture={fixture} includeSettings>
         <MapPanel
           overrideConfig={{
-            topicColors: { "/geo": "#00ffaa", "/geo2": "#aa00ff" },
+            topicColors: { "/geo": "#00ffaa" },
             center: GeoCenter,
           }}
         />
