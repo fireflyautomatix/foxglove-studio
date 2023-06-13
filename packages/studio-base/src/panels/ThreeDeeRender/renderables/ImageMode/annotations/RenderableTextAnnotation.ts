@@ -5,6 +5,7 @@
 import { PinholeCameraModel } from "@foxglove/den/image";
 import { getAnnotationAtPath } from "@foxglove/studio-base/panels/Image/lib/normalizeAnnotations";
 import { TextAnnotation as NormalizedTextAnnotation } from "@foxglove/studio-base/panels/Image/types";
+import { NamespacedTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { ANNOTATION_RENDER_ORDER } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/ImageMode/annotations/annotationRenderOrder";
 import { RosObject, RosValue } from "@foxglove/studio-base/players/types";
 import { Label, LabelPool } from "@foxglove/three-text";
@@ -30,7 +31,7 @@ export class RenderableTextAnnotation extends Renderable<BaseUserData, /*TRender
   #cameraModel?: PinholeCameraModel;
   #cameraModelNeedsUpdate = false;
 
-  public constructor(topicName: string, labelPool: LabelPool) {
+  public constructor(topicName: NamespacedTopic, labelPool: LabelPool) {
     super(topicName, undefined, {
       receiveTime: 0n,
       messageTime: 0n,

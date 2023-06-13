@@ -8,15 +8,19 @@ import { toNanoSec } from "@foxglove/rostime";
 import { Grid, NumericType, PackedElementField } from "@foxglove/schemas";
 import { SettingsTreeAction } from "@foxglove/studio";
 import { GRID_DATATYPES } from "@foxglove/studio-base/panels/ThreeDeeRender/foxglove";
+import {
+  NamespacedTopic,
+  namespaceTopic,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import type { RosValue } from "@foxglove/studio-base/players/types";
 
 import {
-  baseColorModeSettingsNode,
   ColorModeSettings,
-  getColorConverter,
-  NEEDS_MIN_MAX,
   FS_SRGB_TO_LINEAR,
+  NEEDS_MIN_MAX,
   RGBA_PACKED_FIELDS,
+  baseColorModeSettingsNode,
+  getColorConverter,
   hasSeparateRgbaFields,
 } from "./pointClouds/colors";
 import { FieldReader, getReader } from "./pointClouds/fieldReaders";
@@ -25,9 +29,9 @@ import { BaseUserData, Renderable } from "../Renderable";
 import { PartialMessage, PartialMessageEvent, SceneExtension } from "../SceneExtension";
 import { SettingsTreeEntry, SettingsTreeNodeWithActionHandler } from "../SettingsManager";
 import { rgbaToCssString, rgbaToLinear, stringToRgba } from "../color";
-import { normalizePose, normalizeTime, normalizeByteArray } from "../normalizeMessages";
+import { normalizeByteArray, normalizePose, normalizeTime } from "../normalizeMessages";
 import { BaseSettings } from "../settings";
-import { topicIsConvertibleToSchema } from "../topicIsConvertibleToSchema";
+import { convertibleSchemaForTopic } from "../topicIsConvertibleToSchema";
 
 type GridColorModeSettings = ColorModeSettings & {
   // rgba packed modes are only supported for sensor_msgs/PointCloud2
@@ -402,14 +406,16 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
   }
 
   public override settingsNodes(): SettingsTreeEntry[] {
-    const configTopics = this.renderer.config.topics;
+    const configTopics = this.renderer.config.namespacedTopics;
     const handler = this.handleSettingsAction;
     const entries: SettingsTreeEntry[] = [];
     for (const topic of this.renderer.topics ?? []) {
-      if (!topicIsConvertibleToSchema(topic, GRID_DATATYPES)) {
+      const schema = convertibleSchemaForTopic(topic, GRID_DATATYPES);
+      if (!schema) {
         continue;
       }
-      const config = (configTopics[topic.name] ?? {}) as Partial<LayerSettingsFoxgloveGrid>;
+      const namespacedTopic = namespaceTopic(topic.name, schema);
+      const config = (configTopics[namespacedTopic] ?? {}) as Partial<LayerSettingsFoxgloveGrid>;
 
       const node = baseColorModeSettingsNode(
         this.#fieldsByTopic.get(topic.name) ?? [],
@@ -419,6 +425,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
         { supportsPackedRgbModes: false, supportsRgbaFieldsMode: true },
       );
       node.icon = "Cells";
+      node.label = topic.name;
       node.fields.frameLocked = {
         label: "Frame lock",
         input: "boolean",
@@ -426,7 +433,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
       };
       (node as SettingsTreeNodeWithActionHandler).handler = handler;
       entries.push({
-        path: ["topics", topic.name],
+        path: ["namespacedTopics", namespacedTopic],
         node,
       });
     }
@@ -442,10 +449,10 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
     this.saveSetting(path, action.payload.value);
 
     // Update the renderable
-    const topicName = path[1]!;
-    const renderable = this.renderables.get(topicName);
+    const topic = path[1]! as NamespacedTopic;
+    const renderable = this.renderables.get(topic);
     if (renderable) {
-      const settings = this.renderer.config.topics[topicName] as
+      const settings = this.renderer.config.namespacedTopics[topic] as
         | Partial<LayerSettingsFoxgloveGrid>
         | undefined;
       renderable.userData.settings = { ...DEFAULT_SETTINGS, ...settings };
@@ -466,7 +473,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
   };
 
   #handleFoxgloveGrid = (messageEvent: PartialMessageEvent<Grid>): void => {
-    const topic = messageEvent.topic;
+    const topic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     const foxgloveGrid = normalizeFoxgloveGrid(messageEvent.message);
     const receiveTime = toNanoSec(messageEvent.receiveTime);
 
@@ -483,7 +490,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
       renderable.visible = true;
     } else {
       // Set the initial settings from default values merged with any user settings
-      const userSettings = this.renderer.config.topics[topic] as
+      const userSettings = this.renderer.config.namespacedTopics[topic] as
         | Partial<LayerSettingsFoxgloveGrid>
         | undefined;
       const settings = { ...DEFAULT_SETTINGS, ...userSettings };
@@ -496,7 +503,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
           updatedUserSettings.colorField = settings.colorField;
           updatedUserSettings.colorMode = settings.colorMode;
           updatedUserSettings.colorMap = settings.colorMap;
-          draft.topics[topic] = updatedUserSettings;
+          draft.namespacedTopics[topic] = updatedUserSettings;
         });
       }
 
@@ -516,7 +523,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
         messageTime: toNanoSec(foxgloveGrid.timestamp),
         frameId: this.renderer.normalizeFrameId(foxgloveGrid.frame_id),
         pose: foxgloveGrid.pose,
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         settings,
         topic,
         foxgloveGrid,

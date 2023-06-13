@@ -12,7 +12,7 @@ import type { AnyRendererSubscription, IRenderer } from "./IRenderer";
 import { Path } from "./LayerErrors";
 import { BaseUserData, Renderable } from "./Renderable";
 import type { SettingsTreeEntry } from "./SettingsManager";
-import { missingTransformMessage, MISSING_TRANSFORM } from "./renderables/transforms";
+import { MISSING_TRANSFORM, missingTransformMessage } from "./renderables/transforms";
 import { AnyFrameId } from "./transforms";
 import { updatePose } from "./updatePose";
 
@@ -38,7 +38,7 @@ export type PartialMessageEvent<T> = MessageEvent<DeepPartial<T>>;
  * - Message subscriptions are created with `getSubscriptions()`.
  * - Custom layer actions are added with `renderer.addCustomLayerAction()`.
  */
-export class SceneExtension<
+export abstract class SceneExtension<
   TRenderable extends Renderable<BaseUserData> = Renderable<BaseUserData>,
   E extends THREE.BaseEvent = THREE.Event,
 > extends THREE.Object3D<E> {

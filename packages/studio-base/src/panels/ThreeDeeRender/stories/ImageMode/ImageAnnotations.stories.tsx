@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { ImageAnnotations, PointsAnnotationType } from "@foxglove/schemas";
 import { MessageEvent } from "@foxglove/studio";
 import { ImageModeConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
+import { namespaceTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import { makeRawImageAndCalibration } from "@foxglove/studio-base/panels/ThreeDeeRender/stories/ImageMode/imageCommon";
 import PanelSetup, { Fixture } from "@foxglove/studio-base/stories/PanelSetup";
 import { useReadySignal } from "@foxglove/studio-base/stories/ReadySignalContext";
@@ -254,7 +255,9 @@ const AnnotationsStory = (imageModeConfigOverride: Partial<ImageModeConfig> = {}
           imageMode: {
             calibrationTopic: "calibration",
             imageTopic: "camera",
-            annotations: { annotations: { visible: true } },
+            annotations: {
+              [namespaceTopic("annotations", "foxglove.ImageAnnotations")]: { visible: true },
+            },
             ...imageModeConfigOverride,
           },
         }}
@@ -432,8 +435,16 @@ export const MessageConverterSupport: StoryObj = {
               calibrationTopic: "calibration",
               imageTopic: "camera",
               annotations: {
-                annotations: { visible: true },
-                custom_annotations: { visible: true },
+                [namespaceTopic("annotations", "foxglove.ImageAnnotations")]: { visible: true },
+                [namespaceTopic("annotations", "foxglove_msgs/ImageAnnotations")]: {
+                  visible: true,
+                },
+                [namespaceTopic("custom_annotations", "foxglove_msgs/ImageAnnotations")]: {
+                  visible: true,
+                },
+                [namespaceTopic("custom_annotations", "foxglove_msgs/msg/ImageAnnotations")]: {
+                  visible: true,
+                },
               },
             },
           }}
@@ -746,7 +757,12 @@ const AnnotationsUpdateStory = (
           imageMode: {
             calibrationTopic: "calibration",
             imageTopic: "camera",
-            annotations: { annotations: { visible: true }, annotationsToClear: { visible: true } },
+            annotations: {
+              [namespaceTopic("annotations", "foxglove.ImageAnnotations")]: { visible: true },
+              [namespaceTopic("annotationsToClear", "foxglove.ImageAnnotations")]: {
+                visible: true,
+              },
+            },
             ...imageModeConfigOverride,
           },
         }}
@@ -860,7 +876,9 @@ function UpdateLineStory({ messages }: UpdateLineArgs): JSX.Element {
           imageMode: {
             calibrationTopic: "calibration",
             imageTopic: "camera",
-            annotations: { annotations: { visible: true } },
+            annotations: {
+              [namespaceTopic("annotations", "foxglove.ImageAnnotations")]: { visible: true },
+            },
           },
         }}
       />

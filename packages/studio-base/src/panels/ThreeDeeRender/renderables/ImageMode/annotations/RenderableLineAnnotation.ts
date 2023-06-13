@@ -12,9 +12,10 @@ import { PinholeCameraModel } from "@foxglove/den/image";
 import { Color } from "@foxglove/schemas";
 import { getAnnotationAtPath } from "@foxglove/studio-base/panels/Image/lib/normalizeAnnotations";
 import {
-  PointsAnnotation as NormalizedPointsAnnotation,
   CircleAnnotation as NormalizedCircleAnnotation,
+  PointsAnnotation as NormalizedPointsAnnotation,
 } from "@foxglove/studio-base/panels/Image/types";
+import { NamespacedTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import {
   ANNOTATION_RENDER_ORDER,
   annotationRenderOrderMaterialProps,
@@ -87,7 +88,7 @@ export class RenderableLineAnnotation extends Renderable<BaseUserData, /*TRender
   #cameraModel?: PinholeCameraModel;
   #cameraModelNeedsUpdate = false;
 
-  public constructor(topicName: string) {
+  public constructor(topicName: NamespacedTopic) {
     super(topicName, undefined, {
       receiveTime: 0n,
       messageTime: 0n,

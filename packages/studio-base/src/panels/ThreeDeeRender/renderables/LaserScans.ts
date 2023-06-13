@@ -8,11 +8,11 @@ import { Time, toNanoSec } from "@foxglove/rostime";
 import { LaserScan as FoxgloveLaserScan } from "@foxglove/schemas";
 import { SettingsTreeAction } from "@foxglove/studio";
 import {
-  createPoints,
   DEFAULT_POINT_SETTINGS,
   LayerSettingsPointExtension,
-  pointSettingsNode,
   RenderObjectHistory,
+  createPoints,
+  pointSettingsNode,
 } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/pointExtensionUtils";
 import type { RosObject, RosValue } from "@foxglove/studio-base/players/types";
 import { emptyPose } from "@foxglove/studio-base/util/Pose";
@@ -24,9 +24,10 @@ import { BaseUserData, Renderable } from "../Renderable";
 import { PartialMessage, PartialMessageEvent, SceneExtension } from "../SceneExtension";
 import { SettingsTreeEntry, SettingsTreeNodeWithActionHandler } from "../SettingsManager";
 import { LASERSCAN_DATATYPES as FOXGLOVE_LASERSCAN_DATATYPES } from "../foxglove";
-import { normalizeFloat32Array, normalizeTime, normalizePose } from "../normalizeMessages";
+import { NamespacedTopic, namespaceTopic } from "../namespaceTopic";
+import { normalizeFloat32Array, normalizePose, normalizeTime } from "../normalizeMessages";
 import { LASERSCAN_DATATYPES as ROS_LASERSCAN_DATATYPES, LaserScan as RosLaserScan } from "../ros";
-import { topicIsConvertibleToSchema } from "../topicIsConvertibleToSchema";
+import { convertibleSchemaForTopic } from "../topicIsConvertibleToSchema";
 import { Pose } from "../transforms";
 
 type LayerSettingsLaserScan = LayerSettingsPointExtension;
@@ -291,15 +292,16 @@ export class LaserScans extends SceneExtension<LaserScanRenderable> {
   }
 
   public override settingsNodes(): SettingsTreeEntry[] {
-    const configTopics = this.renderer.config.topics;
+    const configTopics = this.renderer.config.namespacedTopics;
     const handler = this.handleSettingsAction;
     const entries: SettingsTreeEntry[] = [];
     for (const topic of this.renderer.topics ?? []) {
-      const isLaserScan = topicIsConvertibleToSchema(topic, ALL_LASERSCAN_DATATYPES);
-      if (!isLaserScan) {
+      const schema = convertibleSchemaForTopic(topic, ALL_LASERSCAN_DATATYPES);
+      if (!schema) {
         continue;
       }
-      const config = (configTopics[topic.name] ?? {}) as Partial<LayerSettingsLaserScan>;
+      const namespacedTopic = namespaceTopic(topic.name, schema);
+      const config = (configTopics[namespacedTopic] ?? {}) as Partial<LayerSettingsLaserScan>;
       const messageFields = LASERSCAN_FIELDS;
       const node: SettingsTreeNodeWithActionHandler = pointSettingsNode(
         topic,
@@ -308,7 +310,7 @@ export class LaserScans extends SceneExtension<LaserScanRenderable> {
       );
       node.handler = handler;
       node.icon = "Radar";
-      entries.push({ path: ["topics", topic.name], node });
+      entries.push({ path: ["namespacedTopics", namespacedTopic], node });
     }
     return entries;
   }
@@ -344,10 +346,10 @@ export class LaserScans extends SceneExtension<LaserScanRenderable> {
     this.saveSetting(path, action.payload.value);
 
     // Update the renderable
-    const topicName = path[1]!;
+    const topicName = path[1]! as NamespacedTopic;
     const renderable = this.renderables.get(topicName);
     if (renderable) {
-      const prevSettings = this.renderer.config.topics[topicName] as
+      const prevSettings = this.renderer.config.namespacedTopics[topicName] as
         | Partial<LayerSettingsLaserScan>
         | undefined;
       const settings = { ...DEFAULT_SETTINGS, ...prevSettings };
@@ -364,7 +366,7 @@ export class LaserScans extends SceneExtension<LaserScanRenderable> {
   #handleLaserScan = (
     messageEvent: PartialMessageEvent<RosLaserScan | FoxgloveLaserScan>,
   ): void => {
-    const topic = messageEvent.topic;
+    const topic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     const laserScan =
       "header" in messageEvent.message
         ? normalizeRosLaserScan(messageEvent.message)
@@ -374,7 +376,7 @@ export class LaserScans extends SceneExtension<LaserScanRenderable> {
     let renderable = this.renderables.get(topic);
     if (!renderable) {
       // Set the initial settings from default values merged with any user settings
-      const userSettings = this.renderer.config.topics[topic] as
+      const userSettings = this.renderer.config.namespacedTopics[topic] as
         | Partial<LayerSettingsLaserScan>
         | undefined;
       const settings = { ...DEFAULT_SETTINGS, ...userSettings };
@@ -389,7 +391,7 @@ export class LaserScans extends SceneExtension<LaserScanRenderable> {
           updatedUserSettings.colorField = settings.colorField;
           updatedUserSettings.colorMode = settings.colorMode;
           updatedUserSettings.colorMap = settings.colorMap;
-          draft.topics[topic] = updatedUserSettings;
+          draft.namespacedTopics[topic] = updatedUserSettings;
         });
       }
 
@@ -406,7 +408,7 @@ export class LaserScans extends SceneExtension<LaserScanRenderable> {
         messageTime,
         frameId: this.renderer.normalizeFrameId(laserScan.frame_id),
         pose: laserScan.pose,
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         settings,
         topic,
         laserScan,

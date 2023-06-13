@@ -6,6 +6,10 @@ import { set } from "lodash";
 
 import { toNanoSec } from "@foxglove/rostime";
 import { SettingsTreeAction } from "@foxglove/studio";
+import {
+  NamespacedTopic,
+  namespaceTopic,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 
 import { LayerSettingsMarker, LayerSettingsMarkerNamespace, TopicMarkers } from "./TopicMarkers";
 import type { AnyRendererSubscription, IRenderer } from "../IRenderer";
@@ -21,8 +25,8 @@ import {
   normalizeVector3,
   normalizeVector3s,
 } from "../normalizeMessages";
-import { Marker, MarkerArray, MARKER_ARRAY_DATATYPES, MARKER_DATATYPES } from "../ros";
-import { topicIsConvertibleToSchema } from "../topicIsConvertibleToSchema";
+import { MARKER_ARRAY_DATATYPES, MARKER_DATATYPES, Marker, MarkerArray } from "../ros";
+import { convertibleSchemaForTopic } from "../topicIsConvertibleToSchema";
 import { makePose } from "../transforms";
 
 const DEFAULT_SETTINGS: LayerSettingsMarker = {
@@ -53,18 +57,19 @@ export class Markers extends SceneExtension<TopicMarkers> {
   }
 
   public override settingsNodes(): SettingsTreeEntry[] {
-    const configTopics = this.renderer.config.topics;
+    const configTopics = this.renderer.config.namespacedTopics;
     const entries: SettingsTreeEntry[] = [];
     for (const topic of this.renderer.topics ?? []) {
-      if (
-        !(
-          topicIsConvertibleToSchema(topic, MARKER_ARRAY_DATATYPES) ||
-          topicIsConvertibleToSchema(topic, MARKER_DATATYPES)
-        )
-      ) {
+      const schema =
+        convertibleSchemaForTopic(topic, MARKER_ARRAY_DATATYPES) ??
+        convertibleSchemaForTopic(topic, MARKER_DATATYPES);
+
+      if (!schema) {
         continue;
       }
-      const config = (configTopics[topic.name] ?? {}) as Partial<LayerSettingsMarker>;
+
+      const namespacedTopic = namespaceTopic(topic.name, schema);
+      const config = (configTopics[namespacedTopic] ?? {}) as Partial<LayerSettingsMarker>;
 
       const node: SettingsTreeNodeWithActionHandler = {
         label: topic.name,
@@ -104,7 +109,7 @@ export class Markers extends SceneExtension<TopicMarkers> {
         }
       }
 
-      entries.push({ path: ["topics", topic.name], node });
+      entries.push({ path: ["namespacedTopics", namespacedTopic], node });
     }
     return entries;
   }
@@ -130,10 +135,10 @@ export class Markers extends SceneExtension<TopicMarkers> {
     this.saveSetting(path, action.payload.value);
 
     // Update the TopicMarkers settings
-    const topicName = path[1]!;
+    const topicName = path[1]! as NamespacedTopic;
     const topicMarkers = this.renderables.get(topicName);
     if (topicMarkers) {
-      const settings = this.renderer.config.topics[topicName] as
+      const settings = this.renderer.config.namespacedTopics[topicName] as
         | Partial<LayerSettingsMarker>
         | undefined;
       topicMarkers.userData.settings = { ...DEFAULT_SETTINGS, ...settings };
@@ -147,24 +152,24 @@ export class Markers extends SceneExtension<TopicMarkers> {
       return;
     }
 
-    const topicName = path[1]!;
+    const topicName = path[1]! as NamespacedTopic;
     const namespaceKey = path[2]!;
     const fieldName = path[3]!;
     const namespace = namespaceKey.slice(3); // remove `ns:` prefix
 
     this.renderer.updateConfig((draft) => {
       // We build the settings tree with paths of the form
-      //   ["topics", <topic>, "ns:"<namespace>, "visible"]
+      //   ["namespacedTopics", <topic>, "ns:"<namespace>, "visible"]
       // but the config is stored with paths of the form
-      //   ["topics", <topic>, "namespaces", <namespace>, "visible"]
-      const actualPath = ["topics", topicName, "namespaces", namespace, fieldName];
+      //   ["namespacedTopics", <topic>, "namespaces", <namespace>, "visible"]
+      const actualPath = ["namespacedTopics", topicName, "namespaces", namespace, fieldName];
       set(draft, actualPath, action.payload.value);
     });
 
     // Update the MarkersNamespace settings
     const renderable = this.renderables.get(topicName);
     if (renderable) {
-      const settings = this.renderer.config.topics[topicName] as
+      const settings = this.renderer.config.namespacedTopics[topicName] as
         | Partial<LayerSettingsMarker>
         | undefined;
       const ns = renderable.namespaces.get(namespace);
@@ -181,7 +186,7 @@ export class Markers extends SceneExtension<TopicMarkers> {
   };
 
   #handleMarkerArray = (messageEvent: PartialMessageEvent<MarkerArray>): void => {
-    const topic = messageEvent.topic;
+    const topic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     const markerArray = messageEvent.message;
     const receiveTime = toNanoSec(messageEvent.receiveTime);
 
@@ -194,14 +199,14 @@ export class Markers extends SceneExtension<TopicMarkers> {
   };
 
   #handleMarker = (messageEvent: PartialMessageEvent<Marker>): void => {
-    const topic = messageEvent.topic;
+    const topic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     const marker = normalizeMarker(messageEvent.message);
     const receiveTime = toNanoSec(messageEvent.receiveTime);
 
     this.#addMarker(topic, marker, receiveTime);
   };
 
-  #addMarker(topic: string, marker: Marker, receiveTime: bigint): void {
+  #addMarker(topic: NamespacedTopic, marker: Marker, receiveTime: bigint): void {
     const topicMarkers = this.#getTopicMarkers(topic, marker, receiveTime);
     const prevNsCount = topicMarkers.namespaces.size;
     topicMarkers.addMarkerMessage(marker, receiveTime);
@@ -212,7 +217,7 @@ export class Markers extends SceneExtension<TopicMarkers> {
     }
   }
 
-  public addMarkerArray(topic: string, markerArray: Marker[], receiveTime: bigint): void {
+  public addMarkerArray(topic: NamespacedTopic, markerArray: Marker[], receiveTime: bigint): void {
     const firstMarker = markerArray[0];
     if (!firstMarker) {
       return;
@@ -230,10 +235,10 @@ export class Markers extends SceneExtension<TopicMarkers> {
     }
   }
 
-  #getTopicMarkers(topic: string, marker: Marker, receiveTime: bigint): TopicMarkers {
+  #getTopicMarkers(topic: NamespacedTopic, marker: Marker, receiveTime: bigint): TopicMarkers {
     let topicMarkers = this.renderables.get(topic);
     if (!topicMarkers) {
-      const userSettings = this.renderer.config.topics[topic] as
+      const userSettings = this.renderer.config.namespacedTopics[topic] as
         | Partial<LayerSettingsMarker>
         | undefined;
 
@@ -242,7 +247,7 @@ export class Markers extends SceneExtension<TopicMarkers> {
         messageTime: toNanoSec(marker.header.stamp),
         frameId: this.renderer.normalizeFrameId(marker.header.frame_id),
         pose: makePose(),
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         topic,
         settings: { ...DEFAULT_SETTINGS, ...userSettings },
       });

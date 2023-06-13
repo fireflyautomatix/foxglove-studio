@@ -7,6 +7,10 @@ import * as THREE from "three";
 import { toNanoSec } from "@foxglove/rostime";
 import { PosesInFrame } from "@foxglove/schemas";
 import { SettingsTreeAction, SettingsTreeFields, Topic } from "@foxglove/studio";
+import {
+  NamespacedTopic,
+  namespaceTopic,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import type { RosValue } from "@foxglove/studio-base/players/types";
 
 import { Axis, AXIS_LENGTH } from "./Axis";
@@ -38,7 +42,10 @@ import {
   fieldScaleVec3,
   fieldSize,
 } from "../settings";
-import { topicIsConvertibleToSchema } from "../topicIsConvertibleToSchema";
+import {
+  convertibleSchemaForTopic,
+  topicIsConvertibleToSchema,
+} from "../topicIsConvertibleToSchema";
 import { makePose, Pose } from "../transforms";
 
 type GradientRgba = [ColorRGBA, ColorRGBA];
@@ -164,20 +171,20 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
   }
 
   public override settingsNodes(): SettingsTreeEntry[] {
-    const configTopics = this.renderer.config.topics;
+    const configTopics = this.renderer.config.namespacedTopics;
     const handler = this.handleSettingsAction;
     const entries: SettingsTreeEntry[] = [];
     for (const topic of this.renderer.topics ?? []) {
-      if (
-        !(
-          topicIsConvertibleToSchema(topic, POSE_ARRAY_DATATYPES) ||
-          topicIsConvertibleToSchema(topic, NAV_PATH_DATATYPES) ||
-          topicIsConvertibleToSchema(topic, POSES_IN_FRAME_DATATYPES)
-        )
-      ) {
+      const schema =
+        convertibleSchemaForTopic(topic, POSE_ARRAY_DATATYPES) ??
+        convertibleSchemaForTopic(topic, NAV_PATH_DATATYPES) ??
+        convertibleSchemaForTopic(topic, POSES_IN_FRAME_DATATYPES);
+      if (!schema) {
         continue;
       }
-      const config = (configTopics[topic.name] ?? {}) as Partial<LayerSettingsPoseArray>;
+
+      const namespacedTopic = namespaceTopic(topic.name, schema);
+      const config = (configTopics[namespacedTopic] ?? {}) as Partial<LayerSettingsPoseArray>;
       const displayType = config.type ?? getDefaultType(topic);
       const { axisScale, lineWidth } = config;
       const arrowScale = config.arrowScale ?? DEFAULT_ARROW_SCALE;
@@ -204,7 +211,7 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
       }
 
       entries.push({
-        path: ["topics", topic.name],
+        path: ["namespacedTopics", namespacedTopic],
         node: {
           label: topic.name,
           icon: topicIsConvertibleToSchema(topic, NAV_PATH_DATATYPES) ? "Timeline" : "Flag",
@@ -226,10 +233,10 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
     this.saveSetting(path, action.payload.value);
 
     // Update the renderable
-    const topicName = path[1]!;
+    const topicName = path[1]! as NamespacedTopic;
     const renderable = this.renderables.get(topicName);
     if (renderable) {
-      const settings = this.renderer.config.topics[topicName] as
+      const settings = this.renderer.config.namespacedTopics[topicName] as
         | Partial<LayerSettingsPoseArray>
         | undefined;
       const defaultType = { type: getDefaultType(this.renderer.topicsByName?.get(topicName)) };
@@ -246,7 +253,7 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
   #handlePoseArray = (messageEvent: PartialMessageEvent<PoseArray>): void => {
     const poseArrayMessage = normalizePoseArray(messageEvent.message);
     const receiveTime = toNanoSec(messageEvent.receiveTime);
-    this.#addPoseArray(messageEvent.topic, poseArrayMessage, messageEvent.message, receiveTime);
+    this.#addPoseArray(messageEvent, poseArrayMessage, messageEvent.message, receiveTime);
   };
 
   #handleNavPath = (messageEvent: PartialMessageEvent<NavPath>): void => {
@@ -256,28 +263,31 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
 
     const poseArrayMessage = normalizeNavPathToPoseArray(messageEvent.message);
     const receiveTime = toNanoSec(messageEvent.receiveTime);
-    this.#addPoseArray(messageEvent.topic, poseArrayMessage, messageEvent.message, receiveTime);
+    this.#addPoseArray(messageEvent, poseArrayMessage, messageEvent.message, receiveTime);
   };
 
   #handlePosesInFrame = (messageEvent: PartialMessageEvent<PosesInFrame>): void => {
     const poseArrayMessage = normalizePosesInFrameToPoseArray(messageEvent.message);
     const receiveTime = toNanoSec(messageEvent.receiveTime);
-    this.#addPoseArray(messageEvent.topic, poseArrayMessage, messageEvent.message, receiveTime);
+    this.#addPoseArray(messageEvent, poseArrayMessage, messageEvent.message, receiveTime);
   };
 
   #addPoseArray(
-    topic: string,
+    messageEvent: PartialMessageEvent<unknown>,
     poseArrayMessage: PoseArray,
     originalMessage: Record<string, RosValue>,
     receiveTime: bigint,
   ): void {
+    const topic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     let renderable = this.renderables.get(topic);
     if (!renderable) {
       // Set the initial settings from default values merged with any user settings
-      const userSettings = this.renderer.config.topics[topic] as
+      const userSettings = this.renderer.config.namespacedTopics[topic] as
         | Partial<LayerSettingsPoseArray>
         | undefined;
-      const defaultType = { type: getDefaultType(this.renderer.topicsByName?.get(topic)) };
+      const defaultType = {
+        type: getDefaultType(this.renderer.topicsByName?.get(messageEvent.topic)),
+      };
       const settings = { ...DEFAULT_SETTINGS, ...defaultType, ...userSettings };
 
       renderable = new PoseArrayRenderable(topic, this.renderer, {
@@ -285,7 +295,7 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
         messageTime: toNanoSec(poseArrayMessage.header.stamp),
         frameId: this.renderer.normalizeFrameId(poseArrayMessage.header.frame_id),
         pose: makePose(),
-        settingsPath: ["topics", topic],
+        settingsPath: ["namespacedTopics", topic],
         settings,
         topic,
         poseArrayMessage,
@@ -342,7 +352,7 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
   #createArrowsToMatchPoses(
     renderable: PoseArrayRenderable,
     poseArray: PoseArray,
-    topic: string,
+    topic: NamespacedTopic,
     colorStart: ColorRGBA,
     colorEnd: ColorRGBA,
   ): void {

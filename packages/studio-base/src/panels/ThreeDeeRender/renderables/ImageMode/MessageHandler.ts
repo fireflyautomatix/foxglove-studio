@@ -5,22 +5,27 @@
 import { Immutable } from "immer";
 
 import { AVLTree } from "@foxglove/avl";
+import { recordEntries } from "@foxglove/den/records";
 import {
   Time,
-  fromNanoSec,
-  toNanoSec,
   compare as compareTime,
+  fromNanoSec,
   isLessThan,
+  toNanoSec,
 } from "@foxglove/rostime";
 import {
   CompressedImage,
-  RawImage,
   ImageAnnotations as FoxgloveImageAnnotations,
+  RawImage,
 } from "@foxglove/schemas";
 import { MessageEvent } from "@foxglove/studio";
 import { normalizeAnnotations } from "@foxglove/studio-base/panels/Image/lib/normalizeAnnotations";
 import { Annotation } from "@foxglove/studio-base/panels/Image/types";
 import { ImageModeConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
+import {
+  NamespacedTopic,
+  namespaceTopic,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import {
   AnyImage,
   getTimestampFromImage,
@@ -38,7 +43,7 @@ import {
 } from "@foxglove/studio-base/types/Messages";
 
 import { PartialMessageEvent } from "../../SceneExtension";
-import { CompressedImage as RosCompressedImage, Image as RosImage, CameraInfo } from "../../ros";
+import { CameraInfo, CompressedImage as RosCompressedImage, Image as RosImage } from "../../ros";
 
 type NormalizedAnnotations = {
   // required for setting the original message on the renderable
@@ -48,10 +53,10 @@ type NormalizedAnnotations = {
 
 type SynchronizationItem = {
   image?: Readonly<MessageEvent<AnyImage>>;
-  annotationsByTopic: Map<string, NormalizedAnnotations>;
+  annotationsByNamespacedTopic: Map<NamespacedTopic, NormalizedAnnotations>;
 };
 
-type Config = Pick<
+export type MessageHandlerConfig = Pick<
   ImageModeConfig,
   "synchronize" | "annotations" | "calibrationTopic" | "imageTopic"
 >;
@@ -59,7 +64,7 @@ type Config = Pick<
 type MessageHandlerState = {
   image?: MessageEvent<AnyImage>;
   cameraInfo?: CameraInfo;
-  annotationsByTopic: Map<string, NormalizedAnnotations>;
+  annotationsByNamespacedTopic: Map<NamespacedTopic, NormalizedAnnotations>;
 };
 
 export type MessageRenderState = Readonly<Partial<MessageHandlerState>>;
@@ -77,7 +82,7 @@ type RenderStateListener = (
  */
 export class MessageHandler {
   /** settings that should reflect image mode config */
-  #config: Immutable<Config>;
+  #config: Immutable<MessageHandlerConfig>;
 
   /** last state passed to listeners */
   #oldRenderState: MessageRenderState | undefined;
@@ -95,10 +100,10 @@ export class MessageHandler {
    *
    * @param config - subset of ImageMode settings required for message handling
    */
-  public constructor(config: Immutable<Config>) {
+  public constructor(config: Immutable<MessageHandlerConfig>) {
     this.#config = config;
     this.#lastReceivedMessages = {
-      annotationsByTopic: new Map(),
+      annotationsByNamespacedTopic: new Map(),
     };
     this.#tree = new AVLTree<Time, SynchronizationItem>(compareTime);
   }
@@ -151,7 +156,7 @@ export class MessageHandler {
     } else {
       this.#tree.set(getTimestampFromImage(image), {
         image: normalizedImageMessage,
-        annotationsByTopic: new Map(),
+        annotationsByNamespacedTopic: new Map(),
       });
     }
     this.#emitState();
@@ -168,9 +173,9 @@ export class MessageHandler {
   ): void => {
     const annotations = normalizeAnnotations(messageEvent.message, messageEvent.schemaName);
 
-    const { topic } = messageEvent;
+    const namespacedTopic = namespaceTopic(messageEvent.topic, messageEvent.schemaName);
     if (this.#config.synchronize !== true) {
-      this.#lastReceivedMessages.annotationsByTopic.set(topic, {
+      this.#lastReceivedMessages.annotationsByNamespacedTopic.set(namespacedTopic, {
         originalMessage: messageEvent,
         annotations,
       });
@@ -195,11 +200,11 @@ export class MessageHandler {
       if (!item) {
         item = {
           image: undefined,
-          annotationsByTopic: new Map(),
+          annotationsByNamespacedTopic: new Map(),
         };
         this.#tree.set(stamp, item);
       }
-      item.annotationsByTopic.set(topic, {
+      item.annotationsByNamespacedTopic.set(namespacedTopic, {
         originalMessage: messageEvent,
         annotations: group,
       });
@@ -237,24 +242,24 @@ export class MessageHandler {
       this.#config.annotations &&
       this.#config.annotations !== newConfig.annotations
     ) {
-      const newVisibleTopics = new Set<string>();
+      const newVisibleAnnotationsMap = new Map<NamespacedTopic, boolean>();
 
-      for (const [topic, settings] of Object.entries(newConfig.annotations)) {
+      for (const [topic, settings] of recordEntries(newConfig.annotations)) {
         if (settings?.visible === true) {
-          newVisibleTopics.add(topic);
+          newVisibleAnnotationsMap.set(topic, settings.visible);
         }
       }
 
-      for (const topic of this.#lastReceivedMessages.annotationsByTopic.keys()) {
-        if (!newVisibleTopics.has(topic)) {
-          this.#lastReceivedMessages.annotationsByTopic.delete(topic);
+      for (const topic of this.#lastReceivedMessages.annotationsByNamespacedTopic.keys()) {
+        if (newVisibleAnnotationsMap.get(topic) == undefined) {
+          this.#lastReceivedMessages.annotationsByNamespacedTopic.delete(topic);
           changed = true;
         }
       }
       for (const syncEntry of this.#tree.values()) {
-        for (const topic of syncEntry.annotationsByTopic.keys()) {
-          if (!newVisibleTopics.has(topic)) {
-            syncEntry.annotationsByTopic.delete(topic);
+        for (const topic of syncEntry.annotationsByNamespacedTopic.keys()) {
+          if (newVisibleAnnotationsMap.get(topic) == undefined) {
+            syncEntry.annotationsByNamespacedTopic.delete(topic);
             changed = true;
           }
         }
@@ -273,7 +278,7 @@ export class MessageHandler {
 
   public clear(): void {
     this.#lastReceivedMessages = {
-      annotationsByTopic: new Map(),
+      annotationsByNamespacedTopic: new Map(),
     };
     this.#tree.clear();
     this.#oldRenderState = undefined;
@@ -297,7 +302,7 @@ export class MessageHandler {
         return {
           cameraInfo: this.#lastReceivedMessages.cameraInfo,
           image: validEntry[1].image,
-          annotationsByTopic: validEntry[1].annotationsByTopic,
+          annotationsByNamespacedTopic: validEntry[1].annotationsByNamespacedTopic,
         };
       }
       return {
@@ -308,9 +313,9 @@ export class MessageHandler {
     return { ...this.#lastReceivedMessages };
   }
 
-  #visibleAnnotations(): Set<string> {
-    const visibleAnnotations = new Set<string>();
-    for (const [topic, settings] of Object.entries(this.#config.annotations ?? {})) {
+  #visibleAnnotations(): Set<NamespacedTopic> {
+    const visibleAnnotations = new Set<NamespacedTopic>();
+    for (const [topic, settings] of recordEntries(this.#config.annotations ?? {})) {
       if (settings?.visible === true) {
         visibleAnnotations.add(topic);
       }
@@ -327,15 +332,15 @@ export class MessageHandler {
  */
 export function findSynchronizedSetAndRemoveOlderItems(
   tree: AVLTree<Time, SynchronizationItem>,
-  visibleAnnotations: Set<string>,
+  visibleAnnotations: Set<NamespacedTopic>,
 ): [Time, SynchronizationItem] | undefined {
   let validEntry: [Time, SynchronizationItem] | undefined = undefined;
   for (const entry of tree.entries()) {
     const messageState = entry[1];
     const hasOnlyVisibleAnnotations =
-      visibleAnnotations.size === messageState.annotationsByTopic.size &&
-      Array.from(visibleAnnotations.keys()).every(
-        (topic) => messageState.annotationsByTopic.get(topic) != undefined,
+      visibleAnnotations.size === messageState.annotationsByNamespacedTopic.size &&
+      Array.from(visibleAnnotations).every(
+        (topic) => messageState.annotationsByNamespacedTopic.get(topic) != undefined,
       );
     // If we have an image and all the messages for annotation topics then we have a synchronized set.
     if (messageState.image && hasOnlyVisibleAnnotations) {

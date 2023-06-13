@@ -33,7 +33,6 @@ import { LabelMaterial, LabelPool } from "@foxglove/three-text";
 import {
   IRenderer,
   InstancedLineMaterial,
-  RendererConfig,
   RendererEvents,
   RendererSubscription,
 } from "./IRenderer";
@@ -47,6 +46,7 @@ import { SettingsManager, SettingsTreeEntry } from "./SettingsManager";
 import { SharedGeometry } from "./SharedGeometry";
 import { CameraState } from "./camera";
 import { DARK_OUTLINE, LIGHT_OUTLINE, stringToRgb } from "./color";
+import { RendererConfig } from "./config";
 import { FRAME_TRANSFORMS_DATATYPES, FRAME_TRANSFORM_DATATYPES } from "./foxglove";
 import { DetailLevel, msaaSamples } from "./lod";
 import {
@@ -682,7 +682,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   /** Adds errors to visible topic nodes when calibration is undefined */
   #imageOnlyModeTopicSettingsValidator = (entry: SettingsTreeEntry, errors: LayerErrors) => {
     const { path, node } = entry;
-    if (path[0] === "topics") {
+    if (path[0] === "namespacedTopics") {
       if (node.visible === true) {
         errors.addToTopic(
           path[1]!,
@@ -725,7 +725,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
   #getTopicsSettingsEntry(): SettingsTreeEntry {
     // "Topics" settings tree node
     const topics: SettingsTreeEntry = {
-      path: ["topics"],
+      path: ["namespacedTopics"],
       node: {
         enableVisibilityFilter: true,
         label: i18next.t("threeDee:topics"),
@@ -734,7 +734,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
           { id: "show-all", type: "action", label: i18next.t("threeDee:showAll") },
           { id: "hide-all", type: "action", label: i18next.t("threeDee:hideAll") },
         ],
-        children: this.settings.tree()["topics"]?.children,
+        children: this.settings.tree()["namespacedTopics"]?.children,
         handler: this.#handleTopicsAction,
       },
     };
@@ -1165,7 +1165,11 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
 
   #handleTopicsAction = (action: SettingsTreeAction): void => {
     const path = action.payload.path;
-    if (action.action !== "perform-node-action" || path.length !== 1 || path[0] !== "topics") {
+    if (
+      action.action !== "perform-node-action" ||
+      path.length !== 1 ||
+      path[0] !== "namespacedTopics"
+    ) {
       return;
     }
     log.debug(`handleTopicsAction(${action.payload.id})`);
@@ -1174,7 +1178,7 @@ export class Renderer extends EventEmitter<RendererEvents> implements IRenderer 
     const toggleTopicVisibility = (value: boolean) => {
       for (const extension of this.sceneExtensions.values()) {
         for (const node of extension.settingsNodes()) {
-          if (node.path[0] === "topics") {
+          if (node.path[0] === "namespacedTopics") {
             extension.handleSettingsAction({
               action: "update",
               payload: { path: [...node.path, "visible"], input: "boolean", value },
@@ -1362,7 +1366,7 @@ function baseSettingsTree(interfaceMode: InterfaceMode): SettingsTreeNodes {
   if (interfaceMode === "3d") {
     keys.push("cameraState");
   }
-  keys.push("transforms", "topics", "layers");
+  keys.push("transforms", "namespacedTopics", "layers");
   if (interfaceMode === "3d") {
     keys.push("publish");
   }

@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { PinholeCameraModel } from "@foxglove/den/image";
 import { getAnnotationAtPath } from "@foxglove/studio-base/panels/Image/lib/normalizeAnnotations";
 import { PointsAnnotation as NormalizedPointsAnnotation } from "@foxglove/studio-base/panels/Image/types";
+import { NamespacedTopic } from "@foxglove/studio-base/panels/ThreeDeeRender/namespaceTopic";
 import {
   ANNOTATION_RENDER_ORDER,
   annotationRenderOrderMaterialProps,
@@ -59,7 +60,7 @@ export class RenderablePointsAnnotation extends Renderable<BaseUserData, /*TRend
   #cameraModel?: PinholeCameraModel;
   #cameraModelNeedsUpdate = false;
 
-  public constructor(topicName: string) {
+  public constructor(topicName: NamespacedTopic) {
     super(topicName, undefined, {
       receiveTime: 0n,
       messageTime: 0n,
